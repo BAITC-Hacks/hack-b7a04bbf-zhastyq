@@ -17,12 +17,15 @@ npm install && npm run dev
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
-.\.venv\Scripts\python.exe -m uvicorn money_graph.bootstrap:create_api_app --factory --host 127.0.0.1 --port 8000 --workers 1
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+.\.venv\Scripts\python.exe -m uvicorn money_graph.bootstrap:create_api_app --factory --env-file .env --host 127.0.0.1 --port 8000 --workers 1
 ```
 
 Vite проксирует `/api` на `http://127.0.0.1:8000`; браузер открывает `http://127.0.0.1:5173`. Swagger: `http://127.0.0.1:8000/docs`. Для другого порта/домена скопируйте `.env.example` в `.env` и задайте `VITE_API_BASE_URL`. При прямых запросах на другой origin включите origin фронтенда в backend `CORS_ORIGINS`. После изменения env перезапустите Vite.
 
-Для AI скопируйте `backend/.env.example` в `backend/.env`, настройте серверные параметры согласно `backend/README.md` и добавьте к команде uvicorn `--env-file .env`. Ключи никогда не помещаются в `VITE_*`. Без настроенного AI остальной анализ работает.
+Для AI настройте серверные параметры в `backend/.env` согласно `backend/README.md`. Команда выше загружает этот файл через `--env-file .env`; без этого флага Uvicorn не читает файл автоматически. После изменения `.env` перезапустите бэкенд. Ключи никогда не помещаются в `VITE_*`. Без настроенного AI остальной анализ работает.
+
+Готовность AI проверяется при раскрытии чата и по кнопке «Проверить подключение». Эта проверка не сбрасывает граф или выбор клиента. Ошибка соединения показывается отдельно от отсутствующей конфигурации. `ai_configured=true` подтверждает настройку сервера; доступность модели и корректность ключа проверяются при отправке вопроса.
 
 В собранном приложении настройте reverse proxy для `/api` либо задайте полный `VITE_API_BASE_URL` **до сборки**. Dev proxy Vite не входит в production bundle. Бэкенд пока рассчитан на локальное использование: один worker, общий снимок в памяти, без аутентификации. После его перезапуска набор надо загрузить заново.
 
