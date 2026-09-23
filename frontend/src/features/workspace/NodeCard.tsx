@@ -1,11 +1,14 @@
 import { useState } from 'react';
+import type { NodeCardResponse } from '../../shared/api/types';
 import type { GraphSlice, NodeDetails, NodeSummary } from '../../shared/contracts';
 import Icon from './Icon';
 import { formatMoney, formatScore, roleLabels } from './labels';
 import { flowInSlice } from './workspaceModel';
+import './NodeCard.css';
 
-export default function NodeCard({ node, detail, graph }: { node: NodeSummary; detail: NodeDetails | null; graph: GraphSlice | null }) {
+export default function NodeCard({ node, detail, graph, card }: { node: NodeSummary; detail: NodeDetails | null; graph: GraphSlice | null; card?: NodeCardResponse | null }) {
   const [copyStatus, setCopyStatus] = useState('');
+  const observation = card?.node.gid === node.gid ? card : null;
   const flow = detail || flowInSlice(graph, node.gid);
   const high = node.priority_score >= 0.8;
   const copy = async () => {
@@ -31,7 +34,7 @@ export default function NodeCard({ node, detail, graph }: { node: NodeSummary; d
       <div><dt>Исходный узел (seed)</dt><dd>{node.is_seed ? 'Да' : 'Нет'}</dd></div>
     </dl>
     <section className="node-card__section">
-      <h3>{detail ? 'Наблюдаемый поток' : flow ? 'Поток в показанном срезе' : 'Денежные потоки'}</h3>
+      <h3>{detail ? observation ? 'Переводы в загруженной выборке' : 'Наблюдаемый поток' : flow ? 'Поток в показанном срезе' : 'Денежные потоки'}</h3>
       {flow ? <><dl className="flow-metrics">
         <div><dt><span className="flow-arrow">↙</span>Входящие</dt><dd>{formatMoney(flow.incoming_sum_kzt)}</dd></div>
         <div><dt><span className="flow-arrow flow-arrow--out">↗</span>Исходящие</dt><dd>{formatMoney(flow.outgoing_sum_kzt)}</dd></div>
@@ -42,6 +45,34 @@ export default function NodeCard({ node, detail, graph }: { node: NodeSummary; d
       <h3><Icon name="info" size={16} />Основание для проверки</h3>
       <p>{node.evidence || 'Описание признаков пока не получено.'}</p>
     </section>
+    {observation && <section className="node-card__section node-observation" aria-label="Контекст наблюдения">
+      <h3>Контекст наблюдения</h3>
+      {observation.limitations.length > 0 && <details className="node-observation__group" open>
+        <summary><Icon name="chevron" size={14} /><span>Ограничения выборки</span><span className="node-observation__count">{observation.limitations.length}</span></summary>
+        <ul className="node-observation__items">
+          {observation.limitations.map((limitation, index) => <li key={index}>{limitation}</li>)}
+        </ul>
+      </details>}
+      {observation.data_gaps.length > 0 && <details className="node-observation__group">
+        <summary><Icon name="chevron" size={14} /><span>Пробелы в данных</span><span className="node-observation__count">{observation.data_gaps.length}</span></summary>
+        <ul className="node-observation__items">
+          {observation.data_gaps.map(gap => <li key={gap.code}>
+            <p className="node-observation__label">{gap.description}</p>
+            <p className="node-observation__evidence">{gap.evidence}</p>
+          </li>)}
+        </ul>
+      </details>}
+      {observation.next_requests.length > 0 && <details className="node-observation__group">
+        <summary><Icon name="chevron" size={14} /><span>Что запросить для проверки</span><span className="node-observation__count">{observation.next_requests.length}</span></summary>
+        <ul className="node-observation__items">
+          {observation.next_requests.map(request => <li key={request.gap_code}>
+            <p className="node-observation__label">{request.request}</p>
+            <p className="node-observation__evidence">{request.reason}</p>
+          </li>)}
+        </ul>
+      </details>}
+      {!observation.limitations.length && !observation.data_gaps.length && !observation.next_requests.length && <p className="node-observation__evidence">Дополнительные пояснения для этого клиента не получены.</p>}
+    </section>}
     <p className="node-card__disclaimer">Выводы ограничены доступной выборкой. Роль не подтверждает нарушение.</p>
   </div>;
 }

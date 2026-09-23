@@ -81,8 +81,8 @@ export default function DataImport({ startImport }: { startImport?: StartImport 
     : pipeline === 'complete' ? 'Расчёт завершён'
     : pipeline === 'running' ? 'Файлы готовы · расчёт выполняется…'
     : pipeline === 'checking' ? 'Проверка данных…'
-    : pipeline === 'uploading' ? 'Отправка набора…'
-    : selectedCount === 3 && !startImport ? 'Файлы выбраны. Сервис анализа ещё не подключён.'
+    : pipeline === 'uploading' ? 'Загрузка, проверка и расчёт…'
+    : selectedCount === 3 && !startImport ? 'Файлы выбраны. Отправка отключена в деморежиме.'
     : `Выбрано ${selectedCount} из 3 файлов`;
 
   return <section className={`data-import panel${compact ? ' data-import--compact' : ''}`} aria-labelledby="import-title">
@@ -100,7 +100,7 @@ export default function DataImport({ startImport }: { startImport?: StartImport 
       </div>
       <button className="primary-button" type="button" disabled={!canStart} aria-describedby="pipeline-description import-availability" onClick={() => { void start(); }}>Загрузить и запустить</button>
     </div>
-    <p id="import-availability" className="data-import__availability">{startImport ? 'Структура колонок проверяется сервисом после отправки.' : 'Доступна локальная проверка файла. Отправка и расчёт появятся после подключения сервиса.'}</p>
+    <p id="import-availability" className="data-import__availability">{startImport ? 'До 25 МиБ на файл. Сервис проверит колонки и выполнит расчёт одним запросом; точный процент прогресса недоступен. При ошибке предыдущий анализ сохранится.' : 'Демонстрационный режим: доступна локальная проверка файла. Для отправки включите реальный API.'}</p>
     </div>
   </section>;
 }

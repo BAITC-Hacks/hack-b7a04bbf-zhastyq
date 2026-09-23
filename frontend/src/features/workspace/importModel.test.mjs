@@ -28,3 +28,7 @@ test('read errors become actionable messages', async () => {
   const unreadable = { name: 'nodes.parquet', size: 16, slice: () => ({ arrayBuffer: async () => { throw new Error('read failed'); } }) };
   assert.match(await validateParquetFile(unreadable), /прочитать/);
 });
+test('oversized file is rejected before reading or sending it', async () => {
+  const oversized = { name: 'nodes.parquet', size: 25 * 1024 * 1024 + 1, slice: () => { throw new Error('must not read'); } };
+  assert.match(await validateParquetFile(oversized), /25 МиБ/);
+});

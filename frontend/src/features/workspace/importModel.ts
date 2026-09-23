@@ -8,7 +8,7 @@ export type ImportEvent =
   | { type: 'file'; key: ImportKey; status: 'uploading' | 'checking' | 'ready' | 'error'; progress?: number; error?: string }
   | { type: 'pipeline'; status: Exclude<PipelineStatus, 'idle'>; error?: string };
 
-/** Future API adapter reports confirmed states; the UI never simulates completion. */
+/** API adapter reports confirmed states; the UI never simulates completion. */
 export type StartImport = (files: Record<ImportKey, File>, report: (event: ImportEvent) => void, signal: AbortSignal) => Promise<void>;
 export const emptySlots = (): ImportSlots => ({ edges: { status: 'empty', revision: 0 }, nodes: { status: 'empty', revision: 0 }, transactions: { status: 'empty', revision: 0 } });
 
@@ -16,6 +16,7 @@ export const emptySlots = (): ImportSlots => ({ edges: { status: 'empty', revisi
 export async function validateParquetFile(file: File): Promise<string | null> {
   if (!/\.parquet$/i.test(file.name)) return 'Ожидается файл .parquet.';
   if (!file.size) return 'Файл пуст. Выберите выгрузку с данными.';
+  if (file.size > 25 * 1024 * 1024) return 'Файл превышает лимит сервиса: 25 МиБ на один файл.';
   if (file.size < 12) return 'Файл повреждён: отсутствует заголовок Parquet.';
   try {
     const [start, end] = await Promise.all([file.slice(0, 4).arrayBuffer(), file.slice(-8).arrayBuffer()]);
