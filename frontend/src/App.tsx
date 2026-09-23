@@ -33,6 +33,7 @@ export default function App() {
   const visible = useMemo(() => filterNodes(nodes, filters), [nodes, filters]);
   const filtered = filters.query !== '' || filters.cluster !== 'all' || filters.role !== 'all' || filters.highOnly;
   const highCount = nodes.filter((node) => node.priority_score >= 0.8).length;
+  const lookupError = searchError || (filters.query.trim() === selectedGid ? nodeError : '');
 
   useEffect(() => {
     const query = window.matchMedia('(max-width: 1100px)');
@@ -73,7 +74,7 @@ export default function App() {
     event.preventDefault();
     const gid = filters.query.trim();
     if (!gid) { searchRef.current?.focus(); return; }
-    if (!nodes.some((node) => node.gid === gid) && !graph?.nodes.some((node) => node.gid === gid)) {
+    if (isDemo && !nodes.some((node) => node.gid === gid) && !graph?.nodes.some((node) => node.gid === gid)) {
       setSearchError('Точный gid не найден в доступном наборе. Ниже показаны совпадения.');
       return;
     }
@@ -116,7 +117,7 @@ export default function App() {
       <button type="button" className="export-button" disabled={!visible.length || loadingTop || !!topError} onClick={download}><Icon name="download" />Экспорт списка<span className="export-button__format">CSV</span></button>
     </div>
 
-    <DataImport />
+    <DataImport startImport={workspace.startImport} />
     <GraphStatistics graph={graph} loading={loadingGraph} />
 
     <section ref={workspaceRef} className="network-workspace panel" id="workspace" tabIndex={-1} aria-labelledby="network-title"
@@ -127,12 +128,12 @@ export default function App() {
         inactive={compact && rightOpen} onToggle={() => { setLeftOpen(!leftOpen); if (compact) setRightOpen(false); }}>
         <form className="search-form" onSubmit={search}>
           <label htmlFor="gid-search" className="sr-only">Поиск по gid</label>
-          <div className="search-field"><Icon name="search" size={17} /><input ref={searchRef} id="gid-search" value={filters.query} onChange={(event) => { setFilters({ ...filters, query: event.target.value }); setSearchError(''); }} placeholder="Найти клиента по gid" autoComplete="off" spellCheck={false} aria-invalid={!!searchError} aria-describedby={searchError ? 'search-error' : undefined} />
+          <div className="search-field"><Icon name="search" size={17} /><input ref={searchRef} id="gid-search" value={filters.query} onChange={(event) => { setFilters({ ...filters, query: event.target.value }); setSearchError(''); }} placeholder="Найти клиента по gid" autoComplete="off" spellCheck={false} aria-invalid={!!lookupError} aria-describedby={lookupError ? 'search-error' : undefined} />
             {filters.query ? <button className="icon-button" type="button" aria-label="Очистить поиск" onClick={() => { setFilters({ ...filters, query: '' }); setSearchError(''); searchRef.current?.focus(); }}><Icon name="close" size={14} /></button> : <kbd aria-hidden="true">/</kbd>}
           </div>
           <button type="submit" className="sr-only" tabIndex={-1}>Найти точный gid</button>
         </form>
-        {searchError && <p className="inline-error" id="search-error" role="alert">{searchError}</p>}
+        {lookupError && <p className="inline-error" id="search-error" role="alert">{lookupError}</p>}
         <div className="list-filters">
           <label>Кластер в списке<select aria-label="Кластер в списке" value={filters.cluster} onChange={(event) => setFilters({ ...filters, cluster: event.target.value })}><option value="all">Все кластеры</option>{clusters.map((id) => <option key={id} value={id}>Кластер {id}</option>)}</select></label>
           <label>Роль<select aria-label="Роль в списке" value={filters.role} onChange={(event) => setFilters({ ...filters, role: event.target.value as Role | 'all' })}><option value="all">Все роли</option>{Object.entries(roleLabels).map(([role, label]) => <option value={role} key={role}>{label}</option>)}</select></label>
@@ -153,10 +154,9 @@ export default function App() {
       </WorkspaceDock>
 
       <section className="graph-panel" aria-label="Граф и окружение клиента" aria-busy={loadingGraph} inert={compact && (leftOpen || rightOpen)}>
-        <div className="graph-context"><span><span className="live-dot" />{graph ? 'Окружение ' + graph.center_gid : 'Локальный срез'}</span><span className="data-text">Выбран {selectedGid}</span></div>
-        {nodeError ? <WorkspaceState title="Не удалось получить срез" error>{nodeError}<button type="button" onClick={workspace.refreshNode}>Повторить запрос</button></WorkspaceState>
-          : loadingGraph ? <WorkspaceState title="Загрузка графа…" />
-          : !graph ? <WorkspaceState title="Срез для этого клиента пока недоступен"><Icon name="network" size={36} /><p>{isDemo ? 'В демонаборе связи подготовлены для окружения клиента 1005. Известные признаки доступны в панели «Карточка клиента».' : 'Сервис пока не вернул связи выбранного клиента.'}</p>{isDemo && <button className="primary-button" type="button" onClick={() => select('1005')}>Открыть пример 1005<Icon name="arrow" size={16} /></button>}</WorkspaceState>
+        <div className="graph-context"><span><span className="live-dot" />{graph ? isDemo ? 'Окружение ' + graph.center_gid : 'Полный граф анализа' : 'Нет анализа'}</span><span className="data-text">{selectedGid ? 'Выбран ' + selectedGid : 'Узел не выбран'}</span>{!isDemo && <button className="text-button" type="button" disabled={loadingTop} onClick={workspace.refreshTop}>Обновить анализ</button>}</div>
+        {loadingGraph ? <WorkspaceState title="Загрузка графа…" />
+          : !graph ? <WorkspaceState title={isDemo ? 'Срез для этого клиента пока недоступен' : 'Анализ недоступен'} error={!!topError}><Icon name="network" size={36} /><p>{isDemo ? 'В демонаборе связи подготовлены для окружения клиента 1005. Известные признаки доступны в панели «Карточка клиента».' : topError || 'Выберите три файла Parquet и запустите расчёт.'}</p>{isDemo && <button className="primary-button" type="button" onClick={() => select('1005')}>Открыть пример 1005<Icon name="arrow" size={16} /></button>}</WorkspaceState>
           : !graph.nodes.length ? <WorkspaceState title="Связи не найдены">В доступном срезе нет узлов для отображения.</WorkspaceState>
           : <Suspense fallback={<WorkspaceState title="Подготовка графа…" />}><GraphView graph={graph} selectedGid={selectedGid} loading={false} onSelectGid={select} /></Suspense>}
         <div className="graph-panel__note"><Icon name="info" size={14} /><span>Роль участника — гипотеза для проверки.</span><span className="graph-interaction-hint">Колесо — масштаб · перетаскивание — обзор</span></div>
@@ -164,7 +164,7 @@ export default function App() {
 
       <WorkspaceDock side="right" title="Карточка клиента" open={rightOpen} busy={loadingDetail}
         inactive={compact && leftOpen} onToggle={() => { setRightOpen(!rightOpen); if (compact) setLeftOpen(false); }}>
-        {nodeError ? <WorkspaceState title="Карточка недоступна" error>{nodeError}<button type="button" onClick={workspace.refreshNode}>Повторить</button></WorkspaceState>
+        {nodeError ? <WorkspaceState title="Карточка недоступна" error>{nodeError}<button type="button" onClick={workspace.refreshNode}>Повторить</button>{!isDemo && <button type="button" onClick={workspace.refreshTop}>Обновить анализ</button>}</WorkspaceState>
           : loadingDetail ? <WorkspaceState title="Загрузка карточки…" />
           : selectedNode ? <NodeCard key={selectedGid} node={selectedNode} detail={detail} graph={graph} />
           : <WorkspaceState title="Выберите клиента">Нажмите на участника в списке или на узел графа.</WorkspaceState>}

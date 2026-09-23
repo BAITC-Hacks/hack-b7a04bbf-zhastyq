@@ -1,0 +1,16 @@
+{
+  "_test_only": "Synthetic HTTP fixture; not a result of the real dataset and never loaded by the UI.",
+  "analysis_id": "synthetic-snapshot-1",
+  "nodes": [
+    { "gid": "100000000000000001", "role": "consolidator", "role_score": 0.7, "priority_score": 0.85, "cluster_id": 7, "evidence": "Synthetic collector evidence", "is_seed": true, "depth": 0, "in_kzt": 5000, "out_kzt": 10000, "in_deg": 1, "out_deg": 1 },
+    { "gid": "100000000000000002", "role": "transit", "role_score": 0.6, "priority_score": 0.5, "cluster_id": 7, "evidence": "Synthetic transit evidence", "is_seed": false, "depth": 1, "in_kzt": 10000, "out_kzt": 5000, "in_deg": 1, "out_deg": 1 },
+    { "gid": "9223372036854775807", "role": "peripheral", "role_score": 0.5, "priority_score": 0, "cluster_id": 8, "evidence": "Synthetic isolated node", "is_seed": false, "depth": 0, "in_kzt": 0, "out_kzt": 0, "in_deg": 0, "out_deg": 0 }
+  ],
+  "edges": [
+    { "src": "100000000000000001", "dst": "100000000000000002", "sum_kzt": 10000, "n_tx": 2 },
+    { "src": "100000000000000002", "dst": "100000000000000001", "sum_kzt": 5000, "n_tx": 1 }
+  ],
+  "top_nodes": [
+    { "rank": 1, "gid": "100000000000000001", "role": "consolidator", "priority_score": 0.85, "why": "Synthetic priority explanation" }
+  ]
+}

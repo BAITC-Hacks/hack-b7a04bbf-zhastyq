@@ -81,7 +81,7 @@ export default function DataImport({ startImport }: { startImport?: StartImport 
     : pipeline === 'complete' ? 'Расчёт завершён'
     : pipeline === 'running' ? 'Файлы готовы · расчёт выполняется…'
     : pipeline === 'checking' ? 'Проверка данных…'
-    : pipeline === 'uploading' ? 'Отправка набора…'
+    : pipeline === 'uploading' ? 'Отправка набора и расчёт…'
     : selectedCount === 3 && !startImport ? 'Файлы выбраны. Сервис анализа ещё не подключён.'
     : `Выбрано ${selectedCount} из 3 файлов`;
 

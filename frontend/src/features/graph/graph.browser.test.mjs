@@ -51,15 +51,17 @@ const range = async (name, value) => {
   await settled();
 };
 try {
-  await page.goto(url); await page.locator('.aml-graph').waitFor(); await settled();
-  await shot('app-overview');
-  const appBefore = await state();
-  await page.getByRole('textbox', { name: 'Найти узел по gid', exact: true }).fill('1003');
-  await page.getByRole('button', { name: 'Найти узел', exact: true }).click();
-  await page.waitForTimeout(350);
-  assert.match(await page.locator('.graph-panel > .graph-context').innerText(), /1003/);
-  assert.equal((await state()).created, appBefore.created);
-  results.push('Application parent callback and selection integration: passed');
+  if (!process.env.GRAPH_QA_HARNESS_ONLY) {
+    await page.goto(url); await page.locator('.aml-graph').waitFor(); await settled();
+    await shot('app-overview');
+    const appBefore = await state();
+    await page.getByRole('textbox', { name: 'Найти узел по gid', exact: true }).fill('1003');
+    await page.getByRole('button', { name: 'Найти узел', exact: true }).click();
+    await page.waitForTimeout(350);
+    assert.match(await page.locator('.graph-panel > .graph-context').innerText(), /1003/);
+    assert.equal((await state()).created, appBefore.created);
+    results.push('Application parent callback and selection integration: passed');
+  }
 
   const mainSource = await (await page.request.get(url + '/src/main.tsx')).text();
   const reactPath = mainSource.match(/\/node_modules\/\.vite\/deps\/react\.js[^"']*/)[0];
@@ -123,6 +125,30 @@ try {
   assert.deepEqual(afterReorder.nodes.map(n=>n.position), beforeReorder.nodes.map(n=>n.position));
   results.push('Equivalent reordered slice preserves renderer, positions and viewport without restarting layout: passed');
 
+  const beforeExternal = await state();
+  await page.evaluate(() => {
+    const cy = document.querySelector('.aml-graph__canvas')._cyreg.cy;
+    cy.pan({ x: -5000, y: -5000 }); window.setSelected('1001');
+  });
+  await page.waitForTimeout(300);
+  const afterExternal = await state();
+  assert.equal(afterExternal.created, beforeExternal.created);
+  assert.deepEqual(afterExternal.nodes.map(n => n.position), beforeExternal.nodes.map(n => n.position));
+  assert.ok(afterExternal.nodes.find(n => n.id === '1001').classes.includes('is-selected'));
+  assert.ok(await page.locator('.aml-graph__canvas').evaluate(el => {
+    const cy = el._cyreg.cy; const p = cy.getElementById('1001').renderedPosition();
+    return Number.isFinite(p.x) && Number.isFinite(p.y) && p.x > 16 && p.x < cy.width() - 264 && p.y > 32 && p.y < cy.height() - 80;
+  }));
+  await page.evaluate(() => {
+    document.querySelector('.aml-graph__canvas')._cyreg.cy.pan({ x: -4000, y: -4000 });
+    window.setGraph({ ...window.fixture });
+  });
+  await page.waitForTimeout(300);
+  assert.deepEqual((await state()).pan, { x: -4000, y: -4000 });
+  assert.equal((await state()).created, beforeExternal.created);
+  await page.getByRole('button', { name: 'Показать весь срез' }).click(); await page.waitForTimeout(250);
+  results.push('New external offscreen selection focuses without layout; same-selection data refresh preserves manual viewport: passed');
+
   for (const [label, value] of [['К центру', 1.6], ['Отталкивание', 3], ['Сила связей', 2.5], ['Длина связей', 2.4]]) {
     const before = await state(); await range(label, value); const after = await state();
     assert.notDeepEqual(after.nodes.map(n => n.position), before.nodes.map(n => n.position));
@@ -135,6 +161,13 @@ try {
   await page.getByText('Фильтры', { exact: true }).click();
   await page.getByLabel('Роль', { exact: true }).selectOption('transit'); await settled(); await shot('filtered-graph');
   assert.equal((await state()).nodes.filter(n => !n.classes.includes('is-filtered')).length, 2);
+  const beforeHiddenSelection = await state();
+  await page.evaluate(() => window.setSelected('1004')); await page.waitForTimeout(250);
+  assert.ok((await state()).nodes.find(n => n.id === '1004').classes.includes('is-filtered'));
+  assert.deepEqual((await state()).pan, beforeHiddenSelection.pan);
+  assert.equal((await state()).created, beforeHiddenSelection.created);
+  await page.getByRole('button', { name: 'Показать скрытый узел', exact: true }).waitFor();
+  results.push('External filtered selection keeps filters and viewport and offers explicit reveal: passed');
   await page.getByRole('textbox', { name: 'Найти узел по gid' }).fill('1005');
   await page.getByRole('button', { name: 'Найти узел', exact: true }).click();
   assert.match(await page.locator('.aml-graph__search').innerText(), /скрыт фильтрами/);
@@ -142,7 +175,7 @@ try {
   assert.equal((await state()).nodes.filter(n => !n.classes.includes('is-filtered')).length, 6);
   await page.getByRole('textbox', { name: 'Найти узел по gid' }).fill('no-such-gid');
   await page.getByRole('button', { name: 'Найти узел', exact: true }).click();
-  assert.match(await page.locator('.aml-graph__search').innerText(), /Не найден в загруженном срезе/);
+  assert.match(await page.locator('.aml-graph__search').innerText(), /не найден в загруженном графе/);
   results.push('Role filters, hidden-result reveal and honest not-found status: passed');
 
   await page.evaluate(() => window.setGraph({ ...window.fixture, nodes: [...window.fixture.nodes,

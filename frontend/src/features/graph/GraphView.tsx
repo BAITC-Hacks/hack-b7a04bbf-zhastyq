@@ -14,6 +14,8 @@ export default function GraphView({ graph, selectedGid, loading, onSelectGid }: 
   const selectRef = useRef(onSelectGid);
   selectRef.current = onSelectGid;
   const pendingFocus = useRef<string | null>(null);
+  const localSelection = useRef<string | null>(null);
+  const selectionContext = useRef({ graph, gid: selectedGid });
   const [filters, setFilters] = useState(defaultFilters);
   const [display, setDisplay] = useState(defaultDisplay);
   const [forces, setForces] = useState(defaultForces);
@@ -34,7 +36,7 @@ export default function GraphView({ graph, selectedGid, loading, onSelectGid }: 
   useEffect(() => {
     if (!canvasRef.current || !sectionRef.current) return;
     const instance = new GraphController(canvasRef.current, {
-      select: gid => selectRef.current(gid), hover: setHover,
+      select: gid => { localSelection.current = gid; selectRef.current(gid); }, hover: setHover,
       layout: (busy, error) => { setLayoutBusy(busy); setLayoutError(error ?? ''); },
     });
     controller.current = instance;
@@ -52,7 +54,18 @@ export default function GraphView({ graph, selectedGid, loading, onSelectGid }: 
       controller.current?.focus(pendingFocus.current); pendingFocus.current = null;
     }
   }, [graph, filters, visible]);
-  useEffect(() => { controller.current?.setSelected(selectedGid); }, [selectedGid]);
+  useEffect(() => {
+    controller.current?.setSelected(selectedGid);
+    const previous = selectionContext.current;
+    selectionContext.current = { graph, gid: selectedGid };
+    const fromGraph = localSelection.current === selectedGid;
+    localSelection.current = null;
+    // The first graph keeps its overview. Later external searches may select a node
+    // outside the viewport; card refreshes and visible graph clicks keep manual framing.
+    if (graph && previous.graph === graph && previous.gid !== selectedGid && selectedGid && !fromGraph) {
+      controller.current?.focusIfOutside(selectedGid);
+    }
+  }, [selectedGid, graph]);
   useEffect(() => { controller.current?.setDisplay(display); }, [display]);
   useEffect(() => { controller.current?.setForces(forces); }, [forces]);
   useEffect(() => { controller.current?.setPanel(panelOpen); }, [panelOpen]);
@@ -62,19 +75,19 @@ export default function GraphView({ graph, selectedGid, loading, onSelectGid }: 
     if (!graph?.nodes.some(node => node.gid === gid)) return;
     pendingFocus.current = gid;
     setFilters({ ...defaultFilters }); setHiddenMatch(null);
-    setSearchMessage(`Узел ${gid} показан. Фильтры сброшены.`); onSelectGid(gid);
+    setSearchMessage(`Узел ${gid} показан. Фильтры сброшены.`); localSelection.current = gid; onSelectGid(gid);
   };
   const search = (event: FormEvent) => {
     event.preventDefault();
     const gid = query.trim(); setHiddenMatch(null);
     if (!gid) { setSearchMessage('Введите полный gid.'); return; }
     if (!graph?.nodes.some(node => node.gid === gid)) {
-      setSearchMessage('Не найден в загруженном срезе. Поиск по остальному датасету пока недоступен.'); return;
+      setSearchMessage('Узел не найден в загруженном графе. Проверьте полный gid.'); return;
     }
     if (!visible.has(gid)) {
       setHiddenMatch(gid); setSearchMessage(`Узел ${gid} найден, но скрыт фильтрами.`); return;
     }
-    controller.current?.focus(gid); onSelectGid(gid); setSearchMessage(`Найден узел ${gid}.`);
+    controller.current?.focus(gid); localSelection.current = gid; onSelectGid(gid); setSearchMessage(`Найден узел ${gid}.`);
   };
   const reset = () => {
     setFilters({ ...defaultFilters }); setDisplay({ ...defaultDisplay }); setForces({ ...defaultForces });

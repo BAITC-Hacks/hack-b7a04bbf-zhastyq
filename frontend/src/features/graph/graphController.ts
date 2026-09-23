@@ -303,6 +303,16 @@ export class GraphController {
       y: (this.cy.height() - 40) / 2 - node.position('y') * zoom });
   }
 
+  focusIfOutside(gid: string) {
+    // A filtered selection stays hidden until the analyst explicitly reveals it.
+    if (!this.visible.has(gid)) return;
+    const node = this.cy.getElementById(gid);
+    const bounds = node.renderedBoundingBox({ includeLabels: false, includeOverlays: false, includeUnderlays: false });
+    if (bounds.x1 < 16 || bounds.x2 > this.availableWidth() - 16 || bounds.y1 < 32 || bounds.y2 > this.cy.height() - 80) {
+      this.focus(gid);
+    }
+  }
+
   zoomBy(factor: number) {
     this.needsFit = false;
     this.zoomAt(factor, { x: this.availableWidth() / 2, y: this.cy.height() / 2 });
