@@ -41,6 +41,8 @@ def test_full_api_path_and_downloads(tmp_path):
     assert current.status_code == 200
     assert {node["gid"] for node in current.json()["nodes"]} == {1, 2, 3}
     assert api.get("/api/nodes/3").json()["node"]["is_seed"] is True
+    assert api.get("/api/nodes/2").json()["node"]["next_request"]
+    assert "robustness" in current.json()
     assert api.get("/api/nodes/999").json()["error"]["code"] == "GID_NOT_FOUND"
     answer = api.post("/api/ask", json={"analysis_id": loaded.json()["analysis_id"],
                                       "question": "Куда идут деньги?", "context_gids": [1]})

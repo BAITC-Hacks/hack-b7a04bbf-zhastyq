@@ -6,6 +6,7 @@ import networkx as nx
 from money_graph.application.ports import Analysis, Dataset
 from money_graph.domain.models import NodeFeatures
 from money_graph.domain.roles import assign_role, priority_base
+from money_graph.infrastructure.advanced import enrich
 
 
 class NetworkxAnalyzer:
@@ -73,4 +74,5 @@ class NetworkxAnalyzer:
                    "n_seed": sum(n.is_seed for n in dataset.nodes), "n_clusters": len(clusters),
                    "edge_volume_kzt": round(sum(e.sum_kzt for e in dataset.edges), 2),
                    "truncated_count": sum(row["truncated_by_depth"] for row in rows)}
-        return Analysis("", summary, rows, edges, clusters, top)
+        extras = enrich(dataset, graph, rows)
+        return Analysis("", summary, rows, edges, clusters, top, extras)
