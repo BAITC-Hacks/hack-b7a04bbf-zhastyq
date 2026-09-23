@@ -10,6 +10,9 @@
 .agent-ai__form { display: flex; align-items: stretch; flex-direction: column; gap: 10px; }
 .agent-ai .agent-ai__intro h3, .agent-ai .agent-ai__result h3 { font-size: var(--text-base); font-weight: var(--weight-heading); margin: 0 0 7px; }
 .agent-ai .agent-ai__intro p { font-size: var(--text-xs); line-height: var(--line-height-body); margin: 0; }
+.agent-ai__connection { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; color: var(--color-text-secondary); font-size: 11px; }
+.agent-ai__connection--error > span { color: var(--color-error); }
+.agent-ai__connection .text-button { font-size: 11px; min-height: 30px; }
 .agent-ai__context { display: flex; align-items: flex-start; gap: 7px; padding: 9px 11px; border: 1px solid var(--color-border); border-radius: var(--radius-control); font-size: var(--text-xs); color: var(--color-text-secondary); overflow-wrap: anywhere; }
 .agent-ai__context .ui-icon { color: var(--color-accent-text); flex-shrink: 0; margin-top: 2px; }
 .agent-ai__context strong { font-weight: var(--weight-emphasis); color: var(--color-text); }

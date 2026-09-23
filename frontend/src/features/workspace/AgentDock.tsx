@@ -7,7 +7,10 @@ import './AgentDock.css';
 interface AgentDockProps {
   analysisId: string | null;
   selectedGid: string | null;
-  configured: boolean;
+  configured: boolean | null;
+  healthLoading: boolean;
+  healthError: string;
+  onRefreshHealth: () => void;
   isDemo: boolean;
   onSelectGid: (gid: string) => void;
   onStale: () => void;
@@ -18,7 +21,7 @@ interface Answer extends AskResponse {
   contextGid: string;
 }
 
-export default function AgentDock({ analysisId, selectedGid, configured, isDemo, onSelectGid, onStale }: AgentDockProps) {
+export default function AgentDock({ analysisId, selectedGid, configured, healthLoading, healthError, onRefreshHealth, isDemo, onSelectGid, onStale }: AgentDockProps) {
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState<Answer | null>(null);
@@ -35,11 +38,21 @@ export default function AgentDock({ analysisId, selectedGid, configured, isDemo,
     ? 'AI-помощник доступен после подключения сервиса анализа и загрузки реальных данных.'
     : !analysisId
       ? 'Загрузите три файла и дождитесь завершения расчёта, чтобы задать вопрос по результатам.'
-      : !configured
-        ? 'AI-сервис пока не настроен на сервере. Анализ сети и карточки клиентов доступны независимо от помощника.'
-        : !selectedGid
-          ? 'Выберите клиента в списке или на графе, чтобы добавить его в контекст вопроса.'
-          : '';
+      : healthLoading
+        ? 'Проверяем готовность AI-сервиса…'
+        : healthError
+          ? `Не удалось проверить AI-сервис. ${healthError}`
+          : configured === null
+            ? 'Подключение к AI-сервису ещё не проверено. Нажмите «Проверить подключение».'
+            : !configured
+              ? 'AI-сервис пока не настроен на сервере. Анализ сети и карточки клиентов доступны независимо от помощника.'
+              : !selectedGid
+                ? 'Выберите клиента в списке или на графе, чтобы добавить его в контекст вопроса.'
+                : '';
+  const healthStatus = healthLoading ? 'Проверяем подключение…'
+    : healthError ? 'Не удалось связаться с сервером'
+      : configured === null ? 'Подключение не проверено'
+        : configured ? 'AI настроен' : 'AI не настроен на сервере';
   const busy = pendingGid !== null;
   const visibleAnswer = answer?.analysis_id === analysisId ? answer : null;
 
@@ -117,9 +130,12 @@ export default function AgentDock({ analysisId, selectedGid, configured, isDemo,
   return (
     <section className={`agent-dock agent-ai${open ? ' agent-dock--open' : ''}`} aria-label="AI-помощник аналитика">
       <button type="button" className="agent-dock__toggle" aria-expanded={open}
-        aria-controls={contentId} onClick={() => setOpen((value) => !value)}>
+        aria-controls={contentId} onClick={() => {
+          setOpen(!open);
+          if (!open && !isDemo) onRefreshHealth();
+        }}>
         <span className="agent-dock__title"><Icon name="sparkle" size={16} />AI-помощник
-          <span className="agent-ai__badge">{busy ? 'Готовит ответ' : isDemo ? 'Демо-режим' : !analysisId ? 'Ожидает расчёта' : configured ? 'По данным анализа' : 'Не настроен'}</span>
+          <span className="agent-ai__badge">{busy ? 'Готовит ответ' : isDemo ? 'Демо-режим' : !analysisId ? 'Ожидает расчёта' : healthLoading ? 'Проверка подключения' : healthError ? 'Нет связи' : configured === null ? 'Не проверен' : configured ? 'По данным анализа' : 'Не настроен'}</span>
         </span>
         <span className="agent-dock__action">{open ? 'Свернуть' : 'Задать вопрос'}<Icon name="chevron" size={14} style={{ transform: open ? 'rotate(180deg)' : undefined }} /></span>
       </button>
@@ -130,6 +146,12 @@ export default function AgentDock({ analysisId, selectedGid, configured, isDemo,
               <h3>Проверяйте гипотезы по данным</h3>
               <p>Попросите объяснить роль клиента или признаки, на которые стоит обратить внимание.</p>
             </div>
+            {!isDemo && <div className={`agent-ai__connection${healthError ? ' agent-ai__connection--error' : ''}`}>
+              <span role="status">{healthStatus}</span>
+              <button type="button" className="text-button" disabled={healthLoading} onClick={onRefreshHealth}>
+                <Icon name="refresh" size={13} />Проверить подключение
+              </button>
+            </div>}
             <div className="agent-ai__context"><Icon name="network" size={15} /><span>Контекст: <strong>{selectedGid ? `клиент ${selectedGid}` : 'клиент не выбран'}</strong></span></div>
             <label htmlFor={questionId}>Ваш вопрос</label>
             <textarea id={questionId} value={question} maxLength={2000} rows={3}

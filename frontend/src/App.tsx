@@ -188,7 +188,9 @@ export default function App() {
       {compact && (leftOpen || rightOpen) && <button className="workspace-backdrop" type="button" tabIndex={-1} aria-label="Закрыть боковую панель" onClick={closeOverlay} />}
       </div>
     </section>
-    <AgentDock analysisId={workspace.analysisId} selectedGid={selectedGid || null} configured={workspace.health?.ai_configured ?? false} isDemo={isDemo} onSelectGid={select} onStale={workspace.refreshTop} />
+    <AgentDock analysisId={workspace.analysisId} selectedGid={selectedGid || null} configured={workspace.health?.ai_configured ?? null}
+      healthLoading={workspace.healthLoading} healthError={workspace.healthError} onRefreshHealth={workspace.refreshHealth}
+      isDemo={isDemo} onSelectGid={select} onStale={workspace.refreshTop} />
     <div className="toast" role="status" aria-live="polite" hidden={!announcement}>{announcement}</div>
   </main>;
 }

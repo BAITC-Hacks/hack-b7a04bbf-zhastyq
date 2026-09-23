@@ -10,6 +10,8 @@ const message = (error: unknown) => error instanceof Error ? error.message : 'Н
 export function useWorkspace() {
   const [snapshot, setSnapshot] = useState<AnalysisResponse | null>(null);
   const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [healthLoading, setHealthLoading] = useState(false);
+  const [healthError, setHealthError] = useState('');
   const [demoNodes, setDemoNodes] = useState<TopNode[]>([]);
   const [demoGraph, setDemoGraph] = useState<GraphSlice | null>(null);
   const [demoDetail, setDemoDetail] = useState<NodeDetails | null>(null);
@@ -23,10 +25,33 @@ export function useWorkspace() {
   const [nodeError, setNodeError] = useState('');
   const [nodeVersion, setNodeVersion] = useState(0);
   const request = useRef<AbortController | null>(null);
+  const healthRequest = useRef<AbortController | null>(null);
   const selectedRef = useRef(selectedGid);
   selectedRef.current = selectedGid;
   const demoGraphRef = useRef(demoGraph);
   demoGraphRef.current = demoGraph;
+
+  const refreshHealth = useCallback(async () => {
+    if (isDemo) return;
+    healthRequest.current?.abort();
+    const controller = new AbortController();
+    healthRequest.current = controller;
+    setHealthLoading(true); setHealthError('');
+    try {
+      const value = await getHealth(controller.signal);
+      if (!controller.signal.aborted) setHealth(value);
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        setHealth(null);
+        setHealthError(message(error));
+      }
+    } finally {
+      if (healthRequest.current === controller) {
+        healthRequest.current = null;
+        setHealthLoading(false);
+      }
+    }
+  }, []);
 
   const refreshTop = useCallback(async () => {
     request.current?.abort();
@@ -38,11 +63,9 @@ export function useWorkspace() {
         if (!controller.signal.aborted) setDemoNodes(value);
         return null;
       }
-      const [analysis, healthResult] = await Promise.allSettled([getAnalysis(controller.signal), getHealth(controller.signal)]);
+      void refreshHealth();
+      const value = await getAnalysis(controller.signal);
       if (controller.signal.aborted) return null;
-      setHealth(healthResult.status === 'fulfilled' ? healthResult.value : null);
-      if (analysis.status === 'rejected') throw analysis.reason;
-      const value = analysis.value;
       setSnapshot(value);
       const gid = value?.nodes.some((node) => node.gid === selectedRef.current)
         ? selectedRef.current : value?.top_nodes[0]?.gid ?? value?.nodes[0]?.gid ?? '';
@@ -54,9 +77,12 @@ export function useWorkspace() {
     } finally {
       if (request.current === controller) { request.current = null; setLoadingTop(false); }
     }
-  }, []);
+  }, [refreshHealth]);
 
-  useEffect(() => { void refreshTop().catch(() => {}); return () => request.current?.abort(); }, [refreshTop]);
+  useEffect(() => {
+    void refreshTop().catch(() => {});
+    return () => { request.current?.abort(); healthRequest.current?.abort(); };
+  }, [refreshTop]);
   const refresh = useCallback(() => {
     // A stale card/AI response must not cancel the snapshot read awaited by an import.
     if (request.current && !request.current.signal.aborted) return;
@@ -129,6 +155,7 @@ export function useWorkspace() {
   const detail = isDemo ? demoDetail : currentCard ? nodeDetails(currentCard.node) : null;
   const selectedNode = detail || nodes.find((node) => node.gid === selectedGid) || graph?.nodes.find((node) => node.gid === selectedGid) || null;
   return { nodes, selectedGid, selectNode, selectedNode, detail, card: currentCard, graph, fullGraph, snapshot, health,
+    healthLoading, healthError, refreshHealth,
     loadingTop, loadingDetail, loadingGraph: isDemo ? loadingDetail && !demoGraph : loadingTop && !snapshot,
     topError, nodeError, refreshTop: refresh, refreshNode: () => setNodeVersion((value) => value + 1),
     startImport: isDemo ? undefined : startImport, analysisId: snapshot?.analysis_id ?? null,
