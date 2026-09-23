@@ -1,0 +1,88 @@
+/* Owner: AGENT_APP. Shared read-only design contract for AGENT_GRAPH. */
+:root {
+  --color-bg: #0C121B;
+  --color-surface: #141E2B;
+  --color-surface-raised: #1C2939;
+  --color-surface-hover: #243449;
+  --color-graph-bg: #101923;
+  --color-text: #EDF2F7;
+  --color-text-secondary: #B1BECE;
+  --color-text-muted: #8D9EB2;
+  --color-border: #34465D;
+  --color-focus: #8DDCF0;
+  --color-accent: #8DDCF0;
+  --color-on-accent: #0C121B;
+
+  --role-consolidator: #009E73;
+  --role-transit: #56B4E9;
+  --role-distributor: #E69F00;
+  --role-terminal: #D55E00;
+  --role-coordinator: #CC79A7;
+  --role-peripheral: #A5AFBC;
+  --role-consolidator-shape: hexagon;
+  --role-transit-shape: ellipse;
+  --role-distributor-shape: triangle;
+  --role-terminal-shape: round-rectangle;
+  --role-coordinator-shape: diamond;
+  --role-peripheral-shape: octagon;
+
+  --priority-high-threshold: 0.8;
+  --color-priority-high: #F4D77D;
+  --color-priority-high-bg: #30291A;
+  --color-error: #FFA0AA;
+  --color-error-bg: #321D28;
+  --color-empty: #B1BECE;
+  --color-empty-bg: #101923;
+
+  --font-ui: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-data: Consolas, "SFMono-Regular", monospace;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-heading: 18px;
+  --text-metric: 24px;
+  --line-height-body: 1.5;
+  --line-height-heading: 1.25;
+  --weight-regular: 400;
+  --weight-emphasis: 600;
+
+  --space-unit: 4px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --layout-columns: minmax(240px, 22fr) minmax(440px, 53fr) minmax(280px, 25fr);
+  --layout-gap: 12px;
+  --layout-padding: 16px;
+  --upload-bar-min-height: 72px;
+  --panel-padding: 16px;
+  --control-height: 40px;
+  --radius-control: 6px;
+  --radius-panel: 10px;
+  --focus-width: 2px;
+  --focus-offset: 3px;
+
+  --graph-node-size: 32px;
+  --graph-node-selected-size: 40px;
+  --graph-node-border: #DCE6F2;
+  --graph-node-border-width: 1px;
+  --graph-seed-border-width: 4px;
+  --graph-seed-border-style: double;
+  --graph-nonseed-border-style: solid;
+  --graph-edge-color: #8D9EB2;
+  --graph-edge-min-width: 1px;
+  --graph-edge-max-width: 5px;
+  --graph-edge-opacity: 0.65;
+  --graph-arrow-scale: 1.2;
+  --graph-selected-color: #FFFFFF;
+  --graph-selected-border-width: 6px;
+  --graph-neighbor-color: #8DDCF0;
+  --graph-neighbor-border-width: 3px;
+  --graph-path-opacity: 1;
+  --graph-dimmed-node-opacity: 0.28;
+  --graph-dimmed-edge-opacity: 0.12;
+  --graph-label-color: #EDF2F7;
+  --graph-label-bg: #101923;
+  --graph-label-size: 12px;
+}

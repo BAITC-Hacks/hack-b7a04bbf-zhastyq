@@ -1,5 +1,9 @@
 # Задание агенту 2: визуализация сети
 
+## Глобальные дизайн-токены
+
+Агент 1 добавил `src/styles/tokens.css`: файл импортируется первым в `src/main.tsx`, все CSS custom properties доступны глобально на `:root`. Этот файл изменяет только агент 1. Читайте `--graph-*`, `--role-*`, включая `--role-*-shape`, в своём модуле. Для Cytoscape считывайте значения через `getComputedStyle(document.documentElement).getPropertyValue(...)`, преобразуя числовые значения по месту; Canvas не вычисляет CSS `var()` самостоятельно. Имена цветов ролей — `--role-consolidator`, `--role-transit` и т. д., без суффикса `-color`. Общая тема тёмная. Остальные панели уже используют токены; адаптация графа принадлежит агенту 2.
+
 Ты владеешь только модулем `frontend/src/features/graph/`. Прочитай корневой `AGENTS.md`, `frontend/ARCHITECTURE.md` и `frontend/src/shared/contracts.ts`. Работай параллельно с агентом 1 без изменений его файлов.
 
 ## Сделать
