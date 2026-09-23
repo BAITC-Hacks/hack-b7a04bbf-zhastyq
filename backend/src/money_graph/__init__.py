@@ -1,1 +1,1 @@
-"""Money graph analysis."""
+"""Backend проекта «Граф денег»."""
