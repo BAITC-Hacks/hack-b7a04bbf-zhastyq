@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import type { GraphSlice, NodeDetails, NodeSummary } from '../../shared/contracts';
 import Icon from './Icon';
+import type { NodeCardData } from '../../shared/api/types';
+import NodeObservations from './NodeObservations';
 import { formatMoney, formatScore, roleLabels } from './labels';
 import { flowInSlice } from './workspaceModel';
 
-export default function NodeCard({ node, detail, graph }: { node: NodeSummary; detail: NodeDetails | null; graph: GraphSlice | null }) {
+export default function NodeCard({ node, detail, graph, card, onSelect }: { node: NodeSummary; detail: NodeDetails | null; graph: GraphSlice | null; card: NodeCardData | null; onSelect: (gid: string) => void }) {
   const [copyStatus, setCopyStatus] = useState('');
   const flow = detail || flowInSlice(graph, node.gid);
   const high = node.priority_score >= 0.8;
@@ -42,6 +44,7 @@ export default function NodeCard({ node, detail, graph }: { node: NodeSummary; d
       <h3><Icon name="info" size={16} />Основание для проверки</h3>
       <p>{node.evidence || 'Описание признаков пока не получено.'}</p>
     </section>
+    {card && <NodeObservations card={card} onSelect={onSelect} />}
     <p className="node-card__disclaimer">Выводы ограничены доступной выборкой. Роль не подтверждает нарушение.</p>
   </div>;
 }

@@ -15,6 +15,7 @@ export const emptySlots = (): ImportSlots => ({ edges: { status: 'empty', revisi
 /** Lightweight envelope check only; column/type validation belongs to the service. */
 export async function validateParquetFile(file: File): Promise<string | null> {
   if (!/\.parquet$/i.test(file.name)) return 'Ожидается файл .parquet.';
+  if (file.size > 25 * 1024 * 1024) return 'Файл превышает лимит 25 MiB.';
   if (!file.size) return 'Файл пуст. Выберите выгрузку с данными.';
   if (file.size < 12) return 'Файл повреждён: отсутствует заголовок Parquet.';
   try {

@@ -10,7 +10,7 @@ export default function DataImport({ startImport }: { startImport?: StartImport 
   const [pipeline, setPipeline] = useState<PipelineStatus>('idle');
   const [pipelineError, setPipelineError] = useState('');
   const [inFlight, setInFlight] = useState(false);
-  const [compact, setCompact] = useState(true);
+  const [compact, setCompact] = useState(false);
   const revisions = useRef({ edges: 0, nodes: 0, transactions: 0 });
   const request = useRef<AbortController | null>(null);
   const mounted = useRef(true);

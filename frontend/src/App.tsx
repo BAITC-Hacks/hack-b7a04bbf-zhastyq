@@ -9,8 +9,8 @@ import WorkspaceDock from './features/workspace/WorkspaceDock';
 import Icon from './features/workspace/Icon';
 import { roleLabels } from './features/workspace/labels';
 import { useWorkspace } from './features/workspace/useWorkspace';
-import { filterNodes, topNodesCsv, type NodeFilters } from './features/workspace/workspaceModel';
-import { isDemo } from './shared/api/workspace';
+import { filterNodes, type NodeFilters } from './features/workspace/workspaceModel';
+import { ApiError, exportNames, getExport, type ExportName } from './shared/api/workspace';
 import type { Role } from './shared/contracts';
 
 const GraphView = lazy(() => import('./features/graph/GraphView'));
@@ -33,6 +33,8 @@ export default function App() {
   const visible = useMemo(() => filterNodes(nodes, filters), [nodes, filters]);
   const filtered = filters.query !== '' || filters.cluster !== 'all' || filters.role !== 'all' || filters.highOnly;
   const highCount = nodes.filter((node) => node.priority_score >= 0.8).length;
+
+  useEffect(() => { setFilters(initialFilters); setSearchError(''); }, [workspace.analysis?.analysis_id]);
 
   useEffect(() => {
     const query = window.matchMedia('(max-width: 1100px)');
@@ -68,12 +70,12 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [announcement]);
 
-  const select = (gid: string) => { workspace.selectNode(gid); setSearchError(''); };
+  const select = (gid: string) => { workspace.selectNode(gid); setSearchError(''); setRightOpen(true); if (compact) setLeftOpen(false); };
   const search = (event: FormEvent) => {
     event.preventDefault();
     const gid = filters.query.trim();
     if (!gid) { searchRef.current?.focus(); return; }
-    if (!nodes.some((node) => node.gid === gid) && !graph?.nodes.some((node) => node.gid === gid)) {
+    if (!workspace.allNodes.some((node) => node.gid === gid)) {
       setSearchError('Точный gid не найден в доступном наборе. Ниже показаны совпадения.');
       return;
     }
@@ -86,18 +88,19 @@ export default function App() {
     setLeftOpen(false); setRightOpen(false);
     requestAnimationFrame(() => workspaceRef.current?.querySelector<HTMLButtonElement>(`.workspace-dock--${side} .workspace-rail`)?.focus());
   };
-  const download = () => {
-    if (!visible.length) return;
+  const download = async (name: ExportName) => {
+    if (!workspace.analysis) return;
     try {
-      const url = URL.createObjectURL(new Blob([topNodesCsv(visible)], { type: 'text/csv;charset=utf-8;' }));
+      const blob = await getExport(name, workspace.analysis.analysis_id);
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = url;
-      link.download = isDemo ? 'top_nodes_demo.csv' : 'top_nodes.csv';
+      link.href = url; link.download = name;
       document.body.append(link); link.click(); link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setAnnouncement('CSV подготовлен: ' + visible.length + ' клиентов из текущего списка.');
-    } catch {
-      setAnnouncement('Не удалось подготовить CSV. Повторите попытку.');
+      setAnnouncement('Скачан ' + name);
+    } catch (error) {
+      setAnnouncement(error instanceof Error ? error.message : 'Не удалось скачать CSV. Повторите попытку.');
+      if (error instanceof ApiError && error.code === 'STALE_ANALYSIS') void workspace.refreshTop();
     }
   };
 
@@ -108,15 +111,17 @@ export default function App() {
         <span className="brand__symbol"><Icon name="network" size={22} /></span>
         <span>zhastyq<span className="brand__suffix"> / intelligence</span></span>
       </a>
-      <div className="app-header__meta"><span className="workspace-label"><Icon name="shield" size={15} /> AML workspace</span><span className="mode-status"><i />{isDemo ? 'Демонстрационный режим' : 'Режим сервиса'}</span></div>
+      <div className="app-header__meta"><span className="workspace-label"><Icon name="shield" size={15} /> AML workspace</span><span className="mode-status"><i />Реальный анализ</span></div>
     </header>
 
     <div className="workspace-title">
       <div><p className="eyebrow">АНАЛИЗ ТРАНЗАКЦИОННОЙ СЕТИ</p><h1>За переводами — связи.</h1><p className="workspace-title__description">Находите ключевых участников и исследуйте движение средств.</p></div>
-      <button type="button" className="export-button" disabled={!visible.length || loadingTop || !!topError} onClick={download}><Icon name="download" />Экспорт списка<span className="export-button__format">CSV</span></button>
+      <div className="export-actions">{exportNames.map((name) => <button key={name} type="button" className="export-button" disabled={!workspace.analysis || loadingTop} onClick={() => { void download(name); }}><Icon name="download" />{name}</button>)}</div>
     </div>
 
-    <DataImport />
+    <DataImport startImport={workspace.startImport} />
+    {!workspace.analysis && !loadingTop && !topError && <p role="status">Анализа пока нет. Загрузите три Parquet-файла организаторов.</p>}
+    {workspace.analysis && <p className="analysis-summary" data-testid="analysis-summary">Полный анализ: {workspace.analysis.summary.n_nodes} узлов · {workspace.analysis.summary.n_edges} рёбер · {workspace.analysis.summary.n_transactions} операций · {workspace.analysis.summary.n_clusters} кластеров. Поиск доступен по всем узлам.</p>}
     <GraphStatistics graph={graph} loading={loadingGraph} />
 
     <section ref={workspaceRef} className="network-workspace panel" id="workspace" tabIndex={-1} aria-labelledby="network-title"
@@ -156,23 +161,23 @@ export default function App() {
         <div className="graph-context"><span><span className="live-dot" />{graph ? 'Окружение ' + graph.center_gid : 'Локальный срез'}</span><span className="data-text">Выбран {selectedGid}</span></div>
         {nodeError ? <WorkspaceState title="Не удалось получить срез" error>{nodeError}<button type="button" onClick={workspace.refreshNode}>Повторить запрос</button></WorkspaceState>
           : loadingGraph ? <WorkspaceState title="Загрузка графа…" />
-          : !graph ? <WorkspaceState title="Срез для этого клиента пока недоступен"><Icon name="network" size={36} /><p>{isDemo ? 'В демонаборе связи подготовлены для окружения клиента 1005. Известные признаки доступны в панели «Карточка клиента».' : 'Сервис пока не вернул связи выбранного клиента.'}</p>{isDemo && <button className="primary-button" type="button" onClick={() => select('1005')}>Открыть пример 1005<Icon name="arrow" size={16} /></button>}</WorkspaceState>
+          : !graph ? <WorkspaceState title="Выберите узел после загрузки анализа"><p>Поиск работает по полному набору, включая изолированные узлы.</p></WorkspaceState>
           : !graph.nodes.length ? <WorkspaceState title="Связи не найдены">В доступном срезе нет узлов для отображения.</WorkspaceState>
           : <Suspense fallback={<WorkspaceState title="Подготовка графа…" />}><GraphView graph={graph} selectedGid={selectedGid} loading={false} onSelectGid={select} /></Suspense>}
-        <div className="graph-panel__note"><Icon name="info" size={14} /><span>Роль участника — гипотеза для проверки.</span><span className="graph-interaction-hint">Колесо — масштаб · перетаскивание — обзор</span></div>
+        <div className="graph-panel__note"><Icon name="info" size={14} /><span>Показан подграф выбранного узла и его непосредственных соседей. Роль — гипотеза.</span><span className="graph-interaction-hint">Колесо — масштаб · перетаскивание — обзор</span></div>
       </section>
 
       <WorkspaceDock side="right" title="Карточка клиента" open={rightOpen} busy={loadingDetail}
         inactive={compact && leftOpen} onToggle={() => { setRightOpen(!rightOpen); if (compact) setLeftOpen(false); }}>
         {nodeError ? <WorkspaceState title="Карточка недоступна" error>{nodeError}<button type="button" onClick={workspace.refreshNode}>Повторить</button></WorkspaceState>
           : loadingDetail ? <WorkspaceState title="Загрузка карточки…" />
-          : selectedNode ? <NodeCard key={selectedGid} node={selectedNode} detail={detail} graph={graph} />
+          : selectedNode ? <NodeCard key={selectedGid} node={selectedNode} detail={detail} graph={graph} card={workspace.card} onSelect={select} />
           : <WorkspaceState title="Выберите клиента">Нажмите на участника в списке или на узел графа.</WorkspaceState>}
       </WorkspaceDock>
       {compact && (leftOpen || rightOpen) && <button className="workspace-backdrop" type="button" tabIndex={-1} aria-label="Закрыть боковую панель" onClick={closeOverlay} />}
       </div>
     </section>
-    <AgentDock />
+    <AgentDock key={(workspace.analysis?.analysis_id ?? "none") + ":" + selectedGid} analysisId={workspace.analysis?.analysis_id ?? null} gid={selectedGid} onSelect={select} onStale={async () => { setAnnouncement('Анализ изменился. Снимок обновлён; выберите узел и повторите вопрос.'); await workspace.refreshTop(); }} />
     <div className="toast" role="status" aria-live="polite" hidden={!announcement}>{announcement}</div>
   </main>;
 }

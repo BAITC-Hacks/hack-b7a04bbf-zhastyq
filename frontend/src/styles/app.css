@@ -228,3 +228,18 @@ dd { margin: 0; font-family: var(--font-data); font-variant-numeric: var(--numer
   .list-filters label, .priority-filter, .list-caption { font-size: 11px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } button { transition: none; } }
+
+.export-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.analysis-summary { padding: 12px 0; }
+.edge-list { padding-left: 16px; max-height: 240px; overflow: auto; }
+.edge-list li { margin: 8px 0; }
+.edge-list span { display: block; }
+.gid-link { overflow-wrap: anywhere; text-align: left; white-space: normal; }
+.data-gap { border-bottom: 1px solid var(--border-default, #dce2df); padding: 8px 0; }
+.data-gap code { overflow-wrap: anywhere; }
+.temporal-item { margin: 10px 0; }
+.temporal-item summary { cursor: pointer; }
+.ai-conversation { width: 100%; }
+.ai-conversation form { display: grid; gap: 10px; }
+.ai-conversation textarea { min-height: 75px; width: 100%; padding: 10px; resize: vertical; }
+.ai-answer { white-space: pre-wrap; overflow-wrap: anywhere; }
