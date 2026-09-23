@@ -10,7 +10,7 @@ from money_graph.domain.models.analysis import Role
 class HealthResponse(BaseModel):
     status: Literal["ok"] = "ok"
     analysis_ready: bool
-    ai_configured: Literal[False] = False
+    ai_configured: bool = False
 
 
 class SummaryResponse(BaseModel):

@@ -5,7 +5,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from money_graph.presentation.api.dependencies import ApiServices
 from money_graph.presentation.api.exception_handlers import register_handlers
-from money_graph.presentation.api.routers import analysis, exports, health, nodes
+from money_graph.presentation.api.routers import analysis, exports, health, nodes, questions
 
 
 class RequestSizeLimit:
@@ -33,10 +33,10 @@ def create_app(
     cors_origins: tuple[str, ...] = (),
     max_file_bytes: int = 25 * 1024 * 1024,
 ) -> FastAPI:
-    app = FastAPI(title="Граф денег", version="0.3.0")
+    app = FastAPI(title="Граф денег", version="0.4.0")
     app.state.services = use_cases
     register_handlers(app)
-    for router in (health.router, analysis.router, nodes.router, exports.router):
+    for router in (health.router, analysis.router, nodes.router, exports.router, questions.router):
         app.include_router(router)
     app.add_middleware(RequestSizeLimit, max_bytes=3 * max_file_bytes + 1024 * 1024)
     app.add_middleware(

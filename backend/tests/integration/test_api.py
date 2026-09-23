@@ -2,11 +2,8 @@ import csv
 import io
 import json
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date
 from threading import Event
 
-import pyarrow as pa
-import pyarrow.parquet as pq
 import pytest
 from fastapi.testclient import TestClient
 
@@ -16,42 +13,6 @@ GID_A = 100000000000000001
 GID_B = 100000000000000002
 GID_C = 100000000000000003
 GID_D = 100000000000000004
-
-
-@pytest.fixture
-def payloads():
-    tables = {
-        "nodes": pa.table(
-            {
-                "gid": [GID_A, GID_B, GID_C, GID_D],
-                "depth": [0, 1, 4, 0],
-                "is_seed": [True, False, False, True],
-            }
-        ),
-        "edges": pa.table(
-            {
-                "src": [GID_A, GID_B, GID_A],
-                "dst": [GID_B, GID_A, GID_C],
-                "sum_kzt": [10000.0, 5000.0, 5000.0],
-                "n_tx": [2, 1, 1],
-                "depth": pa.array([1, 2, 4], type=pa.int8()),
-            }
-        ),
-        "transactions": pa.table(
-            {
-                "src": [GID_A, GID_A, GID_B, GID_A],
-                "dst": [GID_B, GID_B, GID_A, GID_C],
-                "date": pa.array([date(2026, 7, 1)] * 4, type=pa.date32()),
-                "sum_kzt": [5000.0] * 4,
-            }
-        ),
-    }
-    result = {}
-    for name, table in tables.items():
-        stream = io.BytesIO()
-        pq.write_table(table, stream)
-        result[name] = stream.getvalue()
-    return result
 
 
 @pytest.fixture
@@ -262,7 +223,7 @@ def test_openapi_cors_and_restart(client, tmp_path, payloads):
     assert client.get("/docs").status_code == 200
     schema = client.get("/openapi.json").json()
     assert schema["components"]["schemas"]["NodeResponse"]["properties"]["gid"]["type"] == "string"
-    assert "/api/ask" not in schema["paths"]
+    assert "/api/ask" in schema["paths"]
     allowed = client.options(
         "/api/analyze",
         headers={"Origin": "http://localhost:5173", "Access-Control-Request-Method": "POST"},

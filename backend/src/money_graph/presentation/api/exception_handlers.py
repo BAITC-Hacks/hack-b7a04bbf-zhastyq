@@ -12,6 +12,9 @@ STATUS_CODES = {
     "INVALID_SCHEMA": 422,
     "FILE_TOO_LARGE": 413,
     "ANALYSIS_BUSY": 409,
+    "STALE_ANALYSIS": 409,
+    "INVALID_QUESTION": 422,
+    "AI_UNAVAILABLE": 503,
 }
 
 
@@ -35,7 +38,7 @@ def register_handlers(app: FastAPI) -> None:
     async def validation_error(request: Request, error: RequestValidationError) -> JSONResponse:
         fields = [".".join(str(part) for part in item["loc"]) for item in error.errors()]
         return error_response(
-            "INVALID_SCHEMA",
+            "INVALID_QUESTION" if request.url.path == "/api/ask" else "INVALID_SCHEMA",
             "Проверьте обязательные поля и параметры запроса",
             422,
             {"fields": fields},

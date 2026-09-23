@@ -10,4 +10,7 @@ router = APIRouter(prefix="/api", tags=["health"])
 
 @router.get("/health", response_model=HealthResponse)
 def health(use_cases: Annotated[ApiServices, Depends(services)]) -> HealthResponse:
-    return HealthResponse(analysis_ready=use_cases.analysis.optional() is not None)
+    return HealthResponse(
+        analysis_ready=use_cases.analysis.optional() is not None,
+        ai_configured=use_cases.ask.ai_configured,
+    )

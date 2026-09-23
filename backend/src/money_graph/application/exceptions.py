@@ -17,3 +17,7 @@ class ApiError(Exception):
         self.code = code
         self.message = message
         self.details = details or {}
+
+
+class LanguageModelError(Exception):
+    """Провайдер недоступен или ответ не подтверждён контекстом."""
