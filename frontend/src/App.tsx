@@ -1,9 +1,11 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import GraphView from './features/graph/GraphView';
 import NodeCard from './features/workspace/NodeCard';
-import PriorityBadge from './features/workspace/PriorityBadge';
+import PriorityIndicator from './features/workspace/PriorityIndicator';
+import GraphStatistics from './features/workspace/GraphStatistics';
+import AgentDock from './features/workspace/AgentDock';
 import WorkspaceState from './features/workspace/WorkspaceState';
-import { formatScore, roleLabels } from './features/workspace/labels';
+import { roleLabels } from './features/workspace/labels';
 import { getNodeView, getTopNodes, isDemo } from './shared/api/workspace';
 import type { GraphSlice, NodeDetails, TopNode } from './shared/contracts';
 
@@ -14,6 +16,8 @@ export default function App() {
   const [cluster, setCluster] = useState('all');
   const [detail, setDetail] = useState<NodeDetails | null>(null);
   const [graph, setGraph] = useState<GraphSlice | null>(null);
+  const graphRef = useRef(graph);
+  graphRef.current = graph;
   const [loadingTop, setLoadingTop] = useState(true);
   const [loadingNode, setLoadingNode] = useState(true);
   const [error, setError] = useState('');
@@ -30,11 +34,15 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
-    setLoadingNode(true);
+    const keepSlice = !!graphRef.current?.nodes.some((node) => node.gid === selectedGid);
+    setLoadingNode(!keepSlice);
     setDetail(null);
-    setGraph(null);
+    if (!keepSlice) setGraph(null);
     getNodeView(selectedGid).then((value) => {
-      if (active) { setDetail(value.detail); setGraph(value.graph); }
+      if (active) {
+        setDetail(value.detail);
+        if (value.graph || !keepSlice) setGraph(value.graph);
+      }
     }).catch((reason: unknown) => {
       if (active) setError(String(reason instanceof Error ? reason.message : reason));
     }).finally(() => { if (active) setLoadingNode(false); });
@@ -77,6 +85,8 @@ export default function App() {
         </div>
       </section>
 
+      <GraphStatistics graph={error ? null : graph} loading={loadingNode} />
+
       <div className="workspace-grid">
         <section className="panel top-panel" aria-labelledby="top-title">
           <div className="panel-heading"><h2 id="top-title">Приоритеты проверки</h2><span className="count-label">{visible.length}</span></div>
@@ -101,9 +111,8 @@ export default function App() {
               : visible.map((node) => (
                 <button type="button" key={node.gid} className={`top-item${node.gid === selectedGid ? ' top-item--selected' : ''}`}
                   onClick={() => selectNode(node.gid)} aria-pressed={node.gid === selectedGid}>
-                  <span className="top-item__line"><span className="secondary">#{node.rank}</span><span className="data-text">{node.gid}</span><span className="top-item__score">{formatScore(node.priority_score)}</span></span>
+                  <span className="top-item__line"><span className="secondary">#{node.rank}</span><span className="data-text">{node.gid}</span><PriorityIndicator score={node.priority_score} /></span>
                   <span className="top-item__role">{roleLabels[node.role]}</span>
-                  <PriorityBadge score={node.priority_score} />
                   <span className="top-item__why">{node.why}</span>
                 </button>
               ))}
@@ -130,6 +139,7 @@ export default function App() {
             : <WorkspaceState title="Подробная карточка пока недоступна">Выберите демонстрационный узел 1005.</WorkspaceState>}
         </aside>
       </div>
+      <AgentDock />
     </main>
   );
 }
