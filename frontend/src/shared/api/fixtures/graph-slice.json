@@ -1,0 +1,18 @@
+{
+  "center_gid": "1005",
+  "nodes": [
+    {"gid":"1001","role":"consolidator","role_score":0.94,"priority_score":0.96,"cluster_id":1,"evidence":"Получает переводы от 11 разных плательщиков в наблюдаемом графе.","is_seed":false,"depth":2},
+    {"gid":"1003","role":"transit","role_score":0.88,"priority_score":0.90,"cluster_id":1,"evidence":"Наблюдаемые входящие и исходящие суммы близки.","is_seed":false,"depth":2},
+    {"gid":"1004","role":"coordinator","role_score":0.84,"priority_score":0.88,"cluster_id":1,"evidence":"Связывает несколько ветвей наблюдаемого графа.","is_seed":false,"depth":2},
+    {"gid":"1005","role":"consolidator","role_score":0.82,"priority_score":0.86,"cluster_id":1,"evidence":"Получает переводы от 3 разных плательщиков и отправляет дальше части сети.","is_seed":false,"depth":2},
+    {"gid":"1006","role":"terminal","role_score":0.68,"priority_score":0.82,"cluster_id":1,"evidence":"Есть входящий поток, исходящих переводов в наблюдаемой части графа нет; глубина меньше 4.","is_seed":false,"depth":3},
+    {"gid":"1008","role":"transit","role_score":0.77,"priority_score":0.74,"cluster_id":1,"evidence":"Получает и отправляет сопоставимые суммы в наблюдаемом графе.","is_seed":false,"depth":3}
+  ],
+  "edges": [
+    {"source":"1001","target":"1005","sum_kzt":600000,"n_tx":3},
+    {"source":"1003","target":"1005","sum_kzt":500000,"n_tx":2},
+    {"source":"1004","target":"1005","sum_kzt":400000,"n_tx":2},
+    {"source":"1005","target":"1006","sum_kzt":500000,"n_tx":2},
+    {"source":"1005","target":"1008","sum_kzt":390000,"n_tx":1}
+  ]
+}
