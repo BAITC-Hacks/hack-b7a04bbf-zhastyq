@@ -2,6 +2,13 @@ from decimal import Decimal, localcontext
 
 from money_graph.domain.models.analysis import NodeFeatures
 
+OBSERVATION_PERIOD = "июль 2026"
+MIN_OBSERVED_AMOUNT_KZT = 5000
+
+
+def is_isolated(features: NodeFeatures) -> bool:
+    return features.in_degree == 0 and features.out_degree == 0
+
 
 def is_observation_boundary(features: NodeFeatures) -> bool:
     return features.depth == 4 and features.out_degree == 0
@@ -25,7 +32,8 @@ def observation_note(features: NodeFeatures) -> str:
 
 def observation_limitations(features: NodeFeatures) -> tuple[str, ...]:
     notes = [
-        "Наблюдаются только внутрибанковские переводы за июль 2026 от 5000 KZT; "
+        f"Наблюдаются только внутрибанковские переводы за {OBSERVATION_PERIOD} "
+        f"от {MIN_OBSERVED_AMOUNT_KZT} KZT; "
         "полный баланс неизвестен",
         "Роль и оценки — гипотезы для проверки, не вероятность и не вывод о виновности",
     ]
@@ -35,7 +43,7 @@ def observation_limitations(features: NodeFeatures) -> tuple[str, ...]:
         notes.append(
             "depth=4 и отсутствие исходящих — граница наблюдения, не доказательство удержания"
         )
-    if features.in_degree == 0 and features.out_degree == 0:
+    if is_isolated(features):
         notes.append(
             "Узел изолирован в выборке; отсутствие связей не доказывает отсутствие операций"
         )

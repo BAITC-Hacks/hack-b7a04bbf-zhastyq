@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from money_graph.application.dto.active_analysis import AnalysisSnapshot, NodeCard, NodeView
 from money_graph.domain.entities.edge import Edge
 from money_graph.domain.models.analysis import Role
+from money_graph.domain.models.observation import GapCode
 
 
 class HealthResponse(BaseModel):
@@ -78,12 +79,26 @@ class AnalysisResponse(BaseModel):
     top_nodes: list[TopNodeResponse]
 
 
+class DataGapResponse(BaseModel):
+    code: GapCode
+    description: str
+    evidence: str
+
+
+class NextRequestResponse(BaseModel):
+    gap_code: GapCode
+    request: str
+    reason: str
+
+
 class NodeCardResponse(BaseModel):
     analysis_id: str
     node: NodeResponse
     incoming: list[EdgeResponse]
     outgoing: list[EdgeResponse]
     limitations: list[str]
+    data_gaps: list[DataGapResponse]
+    next_requests: list[NextRequestResponse]
 
 
 def summary_response(snapshot: AnalysisSnapshot) -> SummaryResponse:
@@ -161,4 +176,12 @@ def card_response(card: NodeCard) -> NodeCardResponse:
         incoming=[edge_response(edge) for edge in card.incoming],
         outgoing=[edge_response(edge) for edge in card.outgoing],
         limitations=list(card.limitations),
+        data_gaps=[
+            DataGapResponse(code=item.code, description=item.description, evidence=item.evidence)
+            for item in card.observation_advice
+        ],
+        next_requests=[
+            NextRequestResponse(gap_code=item.code, request=item.request, reason=item.reason)
+            for item in card.observation_advice
+        ],
     )

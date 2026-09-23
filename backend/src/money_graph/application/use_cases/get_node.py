@@ -1,6 +1,7 @@
 from money_graph.application.dto.active_analysis import NodeCard
 from money_graph.application.exceptions import ApiError
 from money_graph.application.use_cases.get_analysis import GetAnalysis
+from money_graph.domain.services.observation_assessment import assess_observation
 from money_graph.domain.services.observation_policy import observation_limitations
 
 
@@ -19,4 +20,5 @@ class GetNode:
             tuple(edge for edge in snapshot.edges if edge.dst == gid),
             tuple(edge for edge in snapshot.edges if edge.src == gid),
             observation_limitations(node.analysis.features),
+            assess_observation(node.analysis.features),
         )

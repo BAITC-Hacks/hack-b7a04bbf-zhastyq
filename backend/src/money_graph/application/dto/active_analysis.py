@@ -5,6 +5,7 @@ from typing import BinaryIO, Literal
 
 from money_graph.domain.entities.edge import Edge
 from money_graph.domain.models.analysis import AnalysisResult, NodeAnalysis
+from money_graph.domain.models.observation import ObservationAdvice
 
 UploadName = Literal["nodes", "edges", "transactions"]
 
@@ -49,6 +50,7 @@ class NodeCard:
     incoming: tuple[Edge, ...]
     outgoing: tuple[Edge, ...]
     limitations: tuple[str, ...]
+    observation_advice: tuple[ObservationAdvice, ...]
 
 
 @dataclass(frozen=True)
