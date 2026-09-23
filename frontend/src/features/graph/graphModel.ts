@@ -79,6 +79,7 @@ export function graphElements(graph: GraphSlice, sizes: {
   const edges = graph.edges.filter((edge) => nodes.has(edge.source) && nodes.has(edge.target));
   const p95 = percentile95(edges.map((edge) => edge.sum_kzt));
   const pairs = new Set(edges.map(edge => JSON.stringify([edge.source, edge.target])));
+  const occurrences = new Map<string, number>();
   return [
     ...[...nodes.values()].map((node) => ({
       group: 'nodes' as const,
@@ -86,18 +87,24 @@ export function graphElements(graph: GraphSlice, sizes: {
         diameter: nodeDiameter(node.priority_score, sizes.minNode, sizes.maxNode) },
       classes: node.is_seed ? 'is-seed' : '',
     })),
-    ...edges.map((edge, index) => ({
-      group: 'edges' as const,
-      data: { id: edgeId(index, edge.source, edge.target, nodes), source: edge.source, target: edge.target,
-        width: edgeWidth(edge.sum_kzt, p95, sizes.minEdge, sizes.maxEdge, sizes.defaultEdge),
-        reciprocal: edge.source !== edge.target && pairs.has(JSON.stringify([edge.target, edge.source])),
-        sameCluster: nodes.get(edge.source)!.cluster_id === nodes.get(edge.target)!.cluster_id },
-    })),
+    ...edges.map(edge => {
+      const pair = JSON.stringify([edge.source, edge.target]);
+      const ordinal = occurrences.get(pair) ?? 0;
+      occurrences.set(pair, ordinal + 1);
+      return {
+        group: 'edges' as const,
+        data: { id: edgeId(pair, ordinal, nodes), source: edge.source, target: edge.target,
+          width: edgeWidth(edge.sum_kzt, p95, sizes.minEdge, sizes.maxEdge, sizes.defaultEdge),
+          reciprocal: edge.source !== edge.target && pairs.has(JSON.stringify([edge.target, edge.source])),
+          sameCluster: nodes.get(edge.source)!.cluster_id === nodes.get(edge.target)!.cluster_id },
+      };
+    }),
   ];
 }
 
-function edgeId(index: number, source: string, target: string, nodes: Map<string, unknown>) {
-  let id = `transfer:${index}:${source}:${target}`;
+function edgeId(pair: string, ordinal: number, nodes: Map<string, unknown>) {
+  // Pair-local occurrence survives unrelated node/edge reordering in API responses.
+  let id = `transfer:${pair}:${ordinal}`;
   while (nodes.has(id)) id = ':' + id;
   return id;
 }

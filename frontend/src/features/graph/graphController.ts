@@ -54,8 +54,8 @@ export class GraphController {
       container.style.cursor = 'pointer'; this.highlight();
     });
     this.cy.on('mouseout', 'node', () => this.clearHover());
-    this.cy.on('grab', 'node', () => { this.cancelLayout(); this.needsFit = false; this.clearHover(); });
-    this.cy.on('tapstart', event => { if (event.target === this.cy) this.needsFit = false; });
+    this.cy.on('grab', 'node', () => { this.stopViewport(); this.cancelLayout(); this.needsFit = false; this.clearHover(); });
+    this.cy.on('tapstart', () => { this.stopViewport(); this.needsFit = false; });
     this.cy.on('pan zoom', () => {
       if (this.hovered !== null) this.clearHover();
       this.updateLabels();
@@ -111,7 +111,7 @@ export class GraphController {
     if (paused) {
       const pending = !!this.worker || !!this.layoutTimer || !!this.motionFrame;
       this.cancelLayout(); this.pendingLayout ||= pending;
-      cancelAnimationFrame(this.zoomFrame);
+      this.stopViewport();
     } else if (this.pendingLayout) this.scheduleLayout();
   };
 
@@ -119,7 +119,8 @@ export class GraphController {
     this.graph = graph;
     this.index = graphIndex(graph ?? { center_gid: '', nodes: [], edges: [] });
     const elements = graph ? graphElements(graph, this.tokens.sizes) : [];
-    const topology = JSON.stringify(elements.map(e => e.group === 'nodes' ? e.data.id : [e.data.id, e.data.source, e.data.target]));
+    const topology = JSON.stringify(elements.map(e => JSON.stringify(e.group === 'nodes'
+      ? ['node', e.data.id] : ['edge', e.data.id, e.data.source, e.data.target])).sort());
     const changed = topology !== this.topology;
     const nextVisible = graph ? visibleGids(graph, filters) : new Set<string>();
     const filtersChanged = nextVisible.size !== this.visible.size || [...nextVisible].some(id => !this.visible.has(id));
@@ -228,6 +229,7 @@ export class GraphController {
         worker.onerror = () => {
           if (this.worker !== worker) return;
           worker.terminate(); this.worker = null;
+          cancelAnimationFrame(this.motionFrame); this.motionFrame = 0;
           this.setMotionMode(false);
           this.callbacks.layout(false, 'Не удалось рассчитать раскладку. Сохранены текущие позиции.');
         };
@@ -323,7 +325,7 @@ export class GraphController {
   }
 
   private viewport(zoom: number, pan: Position, animate = true) {
-    cancelAnimationFrame(this.zoomFrame);
+    this.stopViewport();
     const oldZoom = this.cy.zoom(); const oldPan = { ...this.cy.pan() }; const start = performance.now();
     const duration = animate && !this.reduced.matches ? 170 : 0;
     const tick = (now: number) => {
@@ -335,6 +337,10 @@ export class GraphController {
       else this.zoomFrame = 0;
     };
     this.zoomFrame = requestAnimationFrame(tick);
+  }
+
+  private stopViewport() {
+    cancelAnimationFrame(this.zoomFrame); this.zoomFrame = 0;
   }
 
   resetView() { this.cancelLayout(); this.needsFit = false; this.fit(); }

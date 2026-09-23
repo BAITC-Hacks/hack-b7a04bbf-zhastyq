@@ -99,3 +99,17 @@ test('force solver handles empty, coincident, disconnected and self-loop inputs'
   assert.ok(positions.every(p => Number.isFinite(p.x) && Number.isFinite(p.y)));
   assert.equal(new Set(positions.map(p => `${p.x}:${p.y}`)).size, nodes.length);
 });
+
+test('edge identity survives response reordering and distinguishes parallel directions', () => {
+  const graph = { nodes: [
+    { gid: '001', priority_score: 0, cluster_id: 1 },
+    { gid: '1', priority_score: 0, cluster_id: 1 },
+  ], edges: [{ source: '001', target: '1', sum_kzt: 50 },
+    { source: '1', target: '001', sum_kzt: 100 }, { source: '001', target: '1', sum_kzt: 200 }] };
+  const sizes = { minNode: 6, maxNode: 18, minEdge: 0.35, maxEdge: 0.9, defaultEdge: 0.5 };
+  const ids = graph => graphElements(graph, sizes).filter(e => e.group === 'edges').map(e => e.data.id).sort();
+  const original = ids(graph);
+  assert.equal(new Set(original).size, graph.edges.length);
+  assert.deepEqual(ids({ nodes: [...graph.nodes].reverse(), edges: [...graph.edges].reverse() }), original);
+  assert.deepEqual(ids({ ...graph, edges: graph.edges.map(e => ({ ...e, sum_kzt: 0 })) }), original);
+});

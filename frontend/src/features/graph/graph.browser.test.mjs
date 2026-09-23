@@ -41,6 +41,8 @@ const state = () => page.locator('.aml-graph__canvas').evaluate(el => {
     pan: cy.pan(), zoom: cy.zoom(), created: window.workerCreated, alive: window.workerAlive };
 });
 const settled = async () => {
+  // Let React commit prop changes and effects before testing the idle predicate.
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   await page.waitForFunction(() => !document.querySelector('.aml-graph__settling') && window.workerAlive === 0);
   await page.waitForTimeout(180);
 };
@@ -100,6 +102,26 @@ try {
   await page.mouse.move(350, 500); await page.mouse.down(); await page.mouse.move(450, 550, { steps: 8 }); await page.mouse.up();
   assert.notDeepEqual((await state()).pan, zoomBefore.pan);
   results.push('Hover, persistent selection, exact string callback, unchanged layout on selection, zoom and pan: passed');
+
+  await page.getByRole('button', {name:'Приблизить граф',exact:true}).click();
+  await page.mouse.move(200,200); await page.mouse.down();
+  await page.mouse.move(280,240,{steps:2}); await page.mouse.up();
+  const panAfterDrag=(await state()).pan; await page.waitForTimeout(220);
+  assert.deepEqual((await state()).pan,panAfterDrag);
+  results.push('Dragging immediately after zoom cancels viewport interpolation without overriding the gesture: passed');
+
+  const beforeReorder = await state();
+  await page.evaluate(() => {
+    window.previousCy=document.querySelector('.aml-graph__canvas')._cyreg.cy;
+    window.setGraph({...window.fixture,nodes:[...window.fixture.nodes].reverse(),edges:[...window.fixture.edges].reverse()});
+  });
+  await page.waitForTimeout(300);
+  const afterReorder = await state();
+  assert.equal(afterReorder.created, beforeReorder.created);
+  assert.equal(await page.evaluate(() => window.previousCy===document.querySelector('.aml-graph__canvas')._cyreg.cy), true);
+  assert.deepEqual(afterReorder.pan, beforeReorder.pan); assert.equal(afterReorder.zoom, beforeReorder.zoom);
+  assert.deepEqual(afterReorder.nodes.map(n=>n.position), beforeReorder.nodes.map(n=>n.position));
+  results.push('Equivalent reordered slice preserves renderer, positions and viewport without restarting layout: passed');
 
   for (const [label, value] of [['К центру', 1.6], ['Отталкивание', 3], ['Сила связей', 2.5], ['Длина связей', 2.4]]) {
     const before = await state(); await range(label, value); const after = await state();
@@ -203,6 +225,25 @@ try {
   await range('К центру', 1.2);
   assert.ok(await page.evaluate(()=>new Set(window.motionSamples.map(p=>JSON.stringify(p))).size <= 2));
   results.push('Reduced motion does not interpolate layout frames: passed');
+
+  // Hide an in-flight large layout; no background worker may survive invisibility.
+  await page.getByRole('slider', {name:'К центру',exact:true}).fill('1.4');
+  await page.waitForFunction(() => window.workerAlive===1);
+  await page.locator('.aml-graph').evaluate(el=>{el.style.display='none'});
+  await page.waitForFunction(() => window.workerAlive===0);
+  await page.locator('.aml-graph').evaluate(el=>{el.style.display=''});
+  await page.waitForFunction(() => window.workerAlive===1);
+  await settled();
+  results.push('Hidden block cancels an active worker and resumes safely on reveal: passed');
+
+  await page.evaluate(() => {window.setGraph(window.fixture);window.setSelected(null)}); await settled();
+  await page.evaluate(() => {window.Worker=class {constructor(){throw new Error('Simulated worker startup failure')}}});
+  const beforeFailure=await state();
+  await page.getByRole('slider', {name:'К центру',exact:true}).fill('1.6');
+  await page.getByRole('alert').filter({hasText:'Раскладка недоступна'}).waitFor();
+  assert.deepEqual((await state()).nodes.map(n=>n.position),beforeFailure.nodes.map(n=>n.position));
+  assert.equal(await page.evaluate(()=>window.workerAlive),0);
+  results.push('Worker failure retains nodes and positions and displays an actionable error: passed');
   assert.deepEqual(errors, []);
   await writeFile(join(output, 'results.json'), JSON.stringify({ results, errors }, null, 2));
   console.log(JSON.stringify({ results, output }, null, 2));
