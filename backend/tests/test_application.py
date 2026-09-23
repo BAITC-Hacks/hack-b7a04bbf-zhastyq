@@ -77,3 +77,14 @@ def test_model_cannot_cite_unselected_gid():
         assert exc.code == "AI_UNAVAILABLE"
     else:
         assert False
+
+
+def test_seed_question_requires_explicit_gids():
+    service = AnalysisService(Reader(), Analyzer(), Publisher(), Model())
+    result = service.analyze({"nodes": "example"})
+    try:
+        service.ask(result.analysis_id, "Кто получает деньги от этих seed?", [])
+    except AnalysisError as exc:
+        assert exc.code == "INVALID_QUESTION"
+    else:
+        assert False

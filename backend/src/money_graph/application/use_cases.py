@@ -52,6 +52,8 @@ class AnalysisService:
             raise AnalysisError("AI_UNAVAILABLE", "Настройте доступ к модели через переменные окружения")
         if not question.strip():
             raise AnalysisError("INVALID_QUESTION", "Вопрос не может быть пустым")
+        if len(context_gids) > 5:
+            raise AnalysisError("INVALID_QUESTION", "Укажите не более пяти context_gids за один вопрос")
         if any(gid not in {n["gid"] for n in analysis.nodes} for gid in context_gids):
             raise AnalysisError("GID_NOT_FOUND", "Один из context_gids отсутствует в анализе")
         facts, referenced = self._facts(analysis, question, context_gids)
@@ -75,11 +77,9 @@ class AnalysisService:
         by_gid = {n["gid"]: n for n in analysis.nodes}
         if not gids:
             gids = [int(token) for token in re.findall(r"\b\d{1,20}\b", question) if int(token) in by_gid]
-        if not gids and "seed" in question.lower():
-            gids = [n["gid"] for n in analysis.nodes if n["is_seed"]][:5]
         if not gids:
             raise AnalysisError("INVALID_QUESTION", "Выберите gid для вопроса")
-        selected = gids[:5]
+        selected = list(dict.fromkeys(gids))[:5]
         edges = sorted((e for e in analysis.edges if e["src"] in selected), key=lambda e: -e["sum_kzt"])[:20]
         recipients = {e["dst"] for e in edges}
         fields = ("gid", "depth", "is_seed", "role", "role_score", "priority_score", "in_deg", "out_deg",
