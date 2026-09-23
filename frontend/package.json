@@ -1,0 +1,28 @@
+{
+  "name": "zhastyq-aml-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.11.0 <25"
+  },
+  "packageManager": "npm@11.6.1",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "node --test src/features/workspace/statistics.test.mjs src/features/workspace/importModel.test.mjs src/features/workspace/workspaceModel.test.mjs src/features/graph/graphModel.test.mjs"
+  },
+  "dependencies": {
+    "cytoscape": "3.34.3",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "typescript": "7.0.2",
+    "vite": "8.3.0"
+  }
+}

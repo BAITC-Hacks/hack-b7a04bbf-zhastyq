@@ -1,0 +1,14 @@
+{
+  "gid": "1005",
+  "role": "consolidator",
+  "role_score": 0.82,
+  "priority_score": 0.86,
+  "cluster_id": 1,
+  "evidence": "Получает переводы от 3 разных плательщиков и отправляет дальше части сети.",
+  "is_seed": false,
+  "depth": 2,
+  "incoming_sum_kzt": 1500000,
+  "outgoing_sum_kzt": 890000,
+  "unique_payers": 3,
+  "unique_recipients": 2
+}
