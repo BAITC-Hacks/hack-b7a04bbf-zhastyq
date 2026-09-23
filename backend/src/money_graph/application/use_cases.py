@@ -56,16 +56,25 @@ class AnalysisService:
             raise AnalysisError("GID_NOT_FOUND", "Один из context_gids отсутствует в анализе")
         facts, referenced = self._facts(analysis, question, context_gids)
         limitations = ["Видны только внутрибанковские переводы от seed на 4 колена за период выгрузки; переводы ниже 5000 KZT и внешние поступления не видны."]
+        selected = facts["selected_nodes"]
+        if any(node["is_seed"] for node in selected):
+            limitations.append("Входящие суммы seed неполны из-за способа сбора графа.")
+        if any(node["truncated_by_depth"] for node in selected):
+            limitations.append("Нулевой исходящий поток на четвёртом колене означает границу наблюдения, а не подтверждённого получателя.")
         answer = self.model.answer(question, facts, limitations)
         known = {n["gid"] for n in analysis.nodes}
         mentioned = {int(x) for x in re.findall(r"\b\d{15,20}\b", answer)}
-        if not mentioned.issubset(known):
-            raise AnalysisError("AI_UNAVAILABLE", "Модель назвала gid вне текущего графа")
+        if not any(re.search(rf"\b{gid}\b", answer) for gid in referenced):
+            raise AnalysisError("AI_UNAVAILABLE", "Модель не сослалась на gid из выбранных фактов")
+        if not mentioned.issubset(known & referenced):
+            raise AnalysisError("AI_UNAVAILABLE", "Модель назвала gid вне выбранных фактов")
         references = [{"gid": gid, "facts": self._reference_facts(analysis, gid)} for gid in sorted(referenced)]
         return {"analysis_id": analysis_id, "answer": answer, "references": references, "limitations": limitations}
 
     def _facts(self, analysis: Analysis, question: str, gids: list[int]) -> tuple[dict[str, Any], set[int]]:
         by_gid = {n["gid"]: n for n in analysis.nodes}
+        if not gids:
+            gids = [int(token) for token in re.findall(r"\b\d{1,20}\b", question) if int(token) in by_gid]
         if not gids and "seed" in question.lower():
             gids = [n["gid"] for n in analysis.nodes if n["is_seed"]][:5]
         if not gids:
@@ -73,8 +82,14 @@ class AnalysisService:
         selected = gids[:5]
         edges = sorted((e for e in analysis.edges if e["src"] in selected), key=lambda e: -e["sum_kzt"])[:20]
         recipients = {e["dst"] for e in edges}
-        facts = {"selected_nodes": [by_gid[gid] for gid in selected], "outgoing_edges": edges,
-                 "recipients": [by_gid[gid] for gid in sorted(recipients)],
+        fields = ("gid", "depth", "is_seed", "role", "role_score", "priority_score", "in_deg", "out_deg",
+                  "in_kzt", "out_kzt", "in_tx", "out_tx", "truncated_by_depth", "evidence")
+        compact = lambda node: {field: node[field] for field in fields}
+        kind = "top_explanation" if "топ" in question.lower() or "почему" in question.lower() else "money_flow"
+        if "seed" in question.lower() or "сид" in question.lower():
+            kind = "seed_recipients"
+        facts = {"question_kind": kind, "selected_nodes": [compact(by_gid[gid]) for gid in selected], "outgoing_edges": edges,
+                 "recipients": [compact(by_gid[gid]) for gid in sorted(recipients)],
                  "top_positions": [t for t in analysis.top_nodes if t["gid"] in selected]}
         return facts, set(selected) | recipients
 

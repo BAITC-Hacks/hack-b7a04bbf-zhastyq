@@ -12,8 +12,10 @@ class Reader:
 
 class Analyzer:
     def analyze(self, dataset):
-        return Analysis("", {"n_nodes": len(dataset.nodes)}, [{"gid": 123456789012345, "is_seed": False,
-            "truncated_by_depth": True, "in_deg": 1, "out_deg": 0, "in_kzt": 10000.0, "out_kzt": 0.0}], [], [], [])
+        return Analysis("", {"n_nodes": len(dataset.nodes)}, [{"gid": 123456789012345, "depth": 4,
+            "is_seed": False, "truncated_by_depth": True, "role": "peripheral", "role_score": 0.5,
+            "priority_score": 0.2, "evidence": "in=1, out=0", "in_deg": 1, "out_deg": 0,
+            "in_kzt": 10000.0, "out_kzt": 0.0, "in_tx": 1, "out_tx": 0}], [], [], [])
 
 
 class Publisher:
@@ -58,5 +60,20 @@ def test_question_checks_version_and_known_gid():
         service.ask("old", "Почему?", [123456789012345])
     except AnalysisError as exc:
         assert exc.code == "STALE_ANALYSIS"
+    else:
+        assert False
+
+
+def test_model_cannot_cite_unselected_gid():
+    class WrongModel:
+        def answer(self, question, facts, limitations):
+            return "gid 999999999999999 получил 10000 KZT"
+
+    service = AnalysisService(Reader(), Analyzer(), Publisher(), WrongModel())
+    result = service.analyze({"nodes": "example"})
+    try:
+        service.ask(result.analysis_id, "Почему?", [123456789012345])
+    except AnalysisError as exc:
+        assert exc.code == "AI_UNAVAILABLE"
     else:
         assert False
