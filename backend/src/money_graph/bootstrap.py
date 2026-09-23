@@ -1,3 +1,8 @@
+from __future__ import annotations
+
+from pathlib import Path
+from typing import TYPE_CHECKING
+
 from money_graph.application.use_cases.analyze_dataset import AnalyzeDataset
 from money_graph.application.use_cases.validate_dataset import ValidateDataset
 from money_graph.infrastructure.exporters.csv_analysis_exporter import CsvAnalysisExporter
@@ -12,3 +17,43 @@ def main() -> int:
         ValidateDataset(reader),
         AnalyzeDataset(reader, NetworkxCalculator(), CsvAnalysisExporter()),
     )
+
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
+
+
+def build_api(
+    storage_root: Path,
+    cors_origins: tuple[str, ...] = (),
+    max_file_bytes: int = 25 * 1024 * 1024,
+) -> FastAPI:
+    from money_graph.application.use_cases.get_analysis import GetAnalysis
+    from money_graph.application.use_cases.get_export import GetExport
+    from money_graph.application.use_cases.get_node import GetNode
+    from money_graph.application.use_cases.publish_analysis import PublishAnalysis
+    from money_graph.infrastructure.repositories.file_analysis_storage import FileAnalysisStorage
+    from money_graph.infrastructure.repositories.memory_analysis_store import MemoryAnalysisStore
+    from money_graph.presentation.api.app import create_app
+    from money_graph.presentation.api.dependencies import ApiServices
+
+    store = MemoryAnalysisStore()
+    files = FileAnalysisStorage(storage_root, max_file_bytes)
+    analyzer = AnalyzeDataset(ParquetDatasetReader(), NetworkxCalculator(), CsvAnalysisExporter())
+    query = GetAnalysis(store)
+    return create_app(
+        ApiServices(
+            PublishAnalysis(analyzer, store, files), query, GetNode(query), GetExport(query, files)
+        ),
+        cors_origins,
+        max_file_bytes,
+    )
+
+
+def create_api_app() -> FastAPI:
+    import os
+
+    origins = tuple(
+        origin.strip() for origin in os.getenv("CORS_ORIGINS", "").split(",") if origin.strip()
+    )
+    return build_api(Path(os.getenv("ANALYSIS_STORAGE_DIR", "out/api")), origins)

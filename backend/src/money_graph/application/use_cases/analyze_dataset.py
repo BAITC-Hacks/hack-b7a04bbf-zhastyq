@@ -51,4 +51,6 @@ class AnalyzeDataset:
         top = tuple(sorted(nodes, key=lambda node: (-node.priority.score, node.features.gid))[:20])
         result = AnalysisResult(nodes, clusters, top)
         self._exporter.export(result, output_dir)
-        return AnalysisSummary(result, len(dataset.transactions), perf_counter() - started)
+        return AnalysisSummary(
+            result, len(dataset.transactions), perf_counter() - started, dataset.edges
+        )

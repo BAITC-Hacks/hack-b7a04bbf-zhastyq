@@ -7,13 +7,19 @@ name = "money-graph"
 version = "0.1.0"
 description = "Backend проекта Граф денег"
 requires-python = ">=3.10"
-dependencies = ["pyarrow>=15", "networkx==3.4.2"]
+dependencies = [
+  "pyarrow>=15",
+  "networkx==3.4.2",
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.30,<1",
+  "python-multipart>=0.0.18",
+]
 
 [project.scripts]
 money-graph = "money_graph.bootstrap:main"
 
 [project.optional-dependencies]
-dev = ["pytest>=8,<9", "ruff>=0.11,<1"]
+dev = ["pytest>=8,<9", "ruff>=0.11,<1", "httpx>=0.27,<1"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
