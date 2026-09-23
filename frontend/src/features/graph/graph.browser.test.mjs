@@ -57,7 +57,7 @@ try {
   await page.getByRole('textbox', { name: 'Найти узел по gid', exact: true }).fill('1003');
   await page.getByRole('button', { name: 'Найти узел', exact: true }).click();
   await page.waitForTimeout(350);
-  assert.match(await page.locator('.graph-panel > .panel-heading').innerText(), /1003/);
+  assert.match(await page.locator('.graph-panel > .graph-context').innerText(), /1003/);
   assert.equal((await state()).created, appBefore.created);
   results.push('Application parent callback and selection integration: passed');
 
