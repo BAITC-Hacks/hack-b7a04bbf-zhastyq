@@ -107,7 +107,9 @@ def test_bad_response_structure(analysis_snapshot, body):
         model.answer("Вопрос", build_question_context(analysis_snapshot, (int(GID),)))
 
 
-@pytest.mark.parametrize("body", [b"not json", b"x" * (128 * 1024 + 1)])
+@pytest.mark.parametrize(
+    "body", [b"not json", b"x" * (128 * 1024 + 1)], ids=["invalid-json", "oversized-response"]
+)
 def test_invalid_or_oversized_response(analysis_snapshot, body):
     model = OpenAILanguageModel(
         config(), httpx.MockTransport(lambda request: httpx.Response(200, content=body))
