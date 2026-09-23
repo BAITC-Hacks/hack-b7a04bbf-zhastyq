@@ -82,7 +82,11 @@
   --space-5: 20px;
   --space-6: 24px;
   --space-8: 32px;
-  --layout-columns: minmax(250px, 0.85fr) minmax(380px, 1.8fr) minmax(285px, 1fr);
+  --workspace-left-size: clamp(250px, 20vw, 290px);
+  --workspace-right-size: clamp(280px, 22vw, 320px);
+  --workspace-rail-size: 44px;
+  --workspace-stage-height: clamp(560px, 68vh, 820px);
+  --layout-columns: var(--workspace-left-size) minmax(0, 1fr) var(--workspace-right-size);
   --layout-gap: 14px;
   --layout-padding: 20px;
   --upload-bar-min-height: 64px;

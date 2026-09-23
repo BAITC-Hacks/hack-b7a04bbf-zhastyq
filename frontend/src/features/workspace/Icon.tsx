@@ -5,6 +5,8 @@ const paths = {
   download: <><path d="M12 3v12m-5-5 5 5 5-5M4 16v4h16v-4" /></>,
   upload: <><path d="M12 16V4m-5 5 5-5 5 5M4 16v4h16v-4" /></>,
   chevron: <path d="m6 9 6 6 6-6" />,
+  panelLeft: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16m-3-11v6" /></>,
+  panelRight: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M15 4v16m3-11v6" /></>,
   close: <path d="m6 6 12 12M6 18 18 6" />,
   copy: <><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M15 8V4H4v11h4" /></>,
   check: <path d="m5 12 4 4L19 6" />,
