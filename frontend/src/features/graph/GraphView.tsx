@@ -1,174 +1,153 @@
-import { useEffect, useRef } from 'react';
-import cytoscape, { type Core, type StylesheetJson } from 'cytoscape';
-import type { GraphViewProps, Role } from '../../shared/contracts';
-import { graphElements } from './graphModel';
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
+import type { GraphViewProps } from '../../shared/contracts';
+import { roleLabels } from '../workspace/labels';
+import { defaultDisplay, defaultFilters, defaultForces, roles, visibleGids } from './graphModel';
+import { GraphController, type HoverInfo } from './graphController';
+import { clusterColor } from './graphStyles';
+import { GraphControls, GraphIcon } from './GraphControls';
 import './GraphView.css';
 
-const roles: { role: Role; label: string }[] = [
-  { role: 'consolidator', label: 'Консолидация' },
-  { role: 'transit', label: 'Транзит' },
-  { role: 'distributor', label: 'Распределение' },
-  { role: 'terminal', label: 'Конечный получатель' },
-  { role: 'coordinator', label: 'Координация' },
-  { role: 'peripheral', label: 'Периферия' },
-];
-
-function applySelection(cy: Core, gid: string | null) {
-  cy.batch(() => {
-    cy.elements().removeClass('is-selected is-neighbor is-dimmed is-path');
-    if (gid === null) return;
-    const selected = cy.getElementById(gid);
-    if (!selected.length) return;
-    cy.elements().addClass('is-dimmed');
-    selected.removeClass('is-dimmed').addClass('is-selected');
-    const neighbors = selected.neighborhood();
-    neighbors.nodes().removeClass('is-dimmed').addClass('is-neighbor');
-    neighbors.edges().removeClass('is-dimmed').addClass('is-path');
-  });
-}
-
-function fitGraph(cy: Core, padding: number) {
-  cy.resize();
-  const bounds = cy.nodes().boundingBox({ includeLabels: false, includeOverlays: false, includeUnderlays: false });
-  const inset = Math.min(padding, cy.height() / 8);
-  const zoom = Math.max(cy.minZoom(), Math.min(1.4,
-    (cy.width() - 2 * inset) / Math.max(bounds.w, 1),
-    (cy.height() - 2 * inset) / Math.max(bounds.h, 1)));
-  cy.viewport({ zoom, pan: {
-    x: cy.width() / 2 - zoom * (bounds.x1 + bounds.x2) / 2,
-    y: cy.height() / 2 - zoom * (bounds.y1 + bounds.y2) / 2,
-  } });
-}
-
 export default function GraphView({ graph, selectedGid, loading, onSelectGid }: GraphViewProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const cyRef = useRef<Core | null>(null);
+  const sectionRef = useRef<HTMLElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const controller = useRef<GraphController | null>(null);
   const selectRef = useRef(onSelectGid);
   selectRef.current = onSelectGid;
-  const selectionRef = useRef(selectedGid);
-  selectionRef.current = selectedGid;
-  const hasNodes = !loading && graph !== null && graph.nodes.length > 0;
-  const selectedMissing = hasNodes && selectedGid !== null && !graph.nodes.some((node) => node.gid === selectedGid);
+  const pendingFocus = useRef<string | null>(null);
+  const [filters, setFilters] = useState(defaultFilters);
+  const [display, setDisplay] = useState(defaultDisplay);
+  const [forces, setForces] = useState(defaultForces);
+  const [panelOpen, setPanelOpen] = useState(true);
+  const [query, setQuery] = useState('');
+  const [searchMessage, setSearchMessage] = useState('');
+  const [hiddenMatch, setHiddenMatch] = useState<string | null>(null);
+  const [hover, setHover] = useState<HoverInfo>(null);
+  const [layoutBusy, setLayoutBusy] = useState(false);
+  const [layoutError, setLayoutError] = useState('');
+  const id = useId();
+  const visible = useMemo(() => graph ? visibleGids(graph, filters) : new Set<string>(), [graph, filters]);
+  const clusters = useMemo(() => [...new Set(graph?.nodes.map(n => n.cluster_id) ?? [])].sort((a, b) => a - b), [graph]);
+  const depths = useMemo(() => [...new Set(graph?.nodes.map(n => n.depth) ?? [])].sort((a, b) => a - b), [graph]);
+  const selected = graph?.nodes.find(node => node.gid === selectedGid);
+  const edgeCount = useMemo(() => graph?.edges.filter(e => visible.has(e.source) && visible.has(e.target)).length ?? 0, [graph, visible]);
 
   useEffect(() => {
-    const container = containerRef.current;
-    if (!hasNodes || !container || !graph) return;
-    const root = getComputedStyle(document.documentElement);
-    const token = (name: string) => root.getPropertyValue(name).trim();
-    const number = (name: string) => Number.parseFloat(token(name));
-
-    const style: StylesheetJson = [
-      { selector: 'node', style: {
-        shape: 'ellipse', width: 'data(diameter)', height: 'data(diameter)',
-        'background-color': token('--role-peripheral'), opacity: number('--graph-node-opacity'),
-        'border-color': token('--graph-node-border'), 'border-width': number('--graph-node-border-width'),
-        label: '', color: token('--graph-label-color'),
-        'font-family': token('--font-ui'), 'font-size': number('--graph-label-size'),
-        'font-weight': 400, 'text-valign': 'bottom', 'text-margin-y': 5,
-        'text-background-color': token('--graph-label-bg'), 'text-background-opacity': 0.95,
-        'text-background-padding': '2px', 'min-zoomed-font-size': 8, 'overlay-opacity': 0,
-      } },
-      ...roles.map(({ role }) => ({ selector: 'node[role = "' + role + '"]', style: { 'background-color': token('--role-' + role) } })),
-      { selector: 'node.is-seed', style: {
-        'border-width': number('--graph-seed-border-width'), 'border-color': token('--graph-seed-border-color'),
-      } },
-      { selector: 'node.is-neighbor', style: {
-        'border-width': number('--graph-neighbor-border-width'), 'border-color': token('--graph-neighbor-color'),
-      } },
-      { selector: 'node.is-selected', style: {
-        'border-width': number('--graph-selected-border-width'), 'border-color': token('--graph-selected-color'),
-        'underlay-color': token('--graph-selected-halo-color'), 'underlay-opacity': number('--graph-selected-halo-opacity'),
-        'underlay-padding': number('--graph-selected-halo-padding'), 'underlay-shape': 'ellipse',
-      } },
-      { selector: 'node.is-selected, node.is-hovered, node.show-label', style: { label: 'data(label)' } },
-      { selector: 'node.is-dimmed', style: { opacity: number('--graph-dimmed-node-opacity') } },
-      { selector: 'edge', style: {
-        width: 'data(width)', 'line-color': token('--graph-edge-color'), opacity: number('--graph-edge-opacity'),
-        'target-arrow-color': token('--graph-arrow-color'), 'target-arrow-shape': 'triangle',
-        'arrow-scale': number('--graph-arrow-scale'), 'curve-style': 'bezier', 'overlay-opacity': 0,
-      } },
-      { selector: 'edge.is-path', style: {
-        'line-color': token('--graph-path-color'), 'target-arrow-color': token('--graph-path-color'),
-        opacity: number('--graph-path-opacity'),
-      } },
-      { selector: 'edge.is-dimmed', style: { opacity: number('--graph-dimmed-edge-opacity') } },
-    ];
-
-    const cy = cytoscape({
-      container,
-      elements: graphElements(graph, {
-        minNode: number('--graph-node-min-size'), maxNode: number('--graph-node-max-size'),
-        minEdge: number('--graph-edge-min-width'), maxEdge: number('--graph-edge-max-width'),
-        defaultEdge: number('--graph-edge-default-width'),
-      }),
-      style, minZoom: 0.08, maxZoom: 4, boxSelectionEnabled: false,
-      autounselectify: true, layout: { name: 'preset' },
+    if (!canvasRef.current || !sectionRef.current) return;
+    const instance = new GraphController(canvasRef.current, {
+      select: gid => selectRef.current(gid), hover: setHover,
+      layout: (busy, error) => { setLayoutBusy(busy); setLayoutError(error ?? ''); },
     });
-    cyRef.current = cy;
-
-    const updateLabels = () => cy.nodes().toggleClass('show-label', cy.zoom() >= 1.6);
-    const fit = () => {
-      fitGraph(cy, number('--graph-layout-padding'));
-      updateLabels();
-    };
-    cy.on('tap', 'node', (event) => selectRef.current(event.target.id()));
-    cy.on('mouseover', 'node', (event) => { event.target.addClass('is-hovered'); container.style.cursor = 'pointer'; });
-    cy.on('mouseout', 'node', (event) => { event.target.removeClass('is-hovered'); container.style.cursor = ''; });
-    cy.on('zoom', updateLabels);
-    const layout = cy.layout({
-      name: token('--graph-layout'), animate: false, fit: false, randomize: true,
-      padding: number('--graph-layout-padding'),
-      componentSpacing: number('--graph-component-spacing'),
-      idealEdgeLength: (edge: cytoscape.EdgeSingular) => number(edge.data('sameCluster') ? '--graph-edge-length-intra' : '--graph-edge-length-inter'),
-      nodeRepulsion: () => 2048,
-      numIter: number('--graph-layout-iterations'),
-      stop: () => { fit(); applySelection(cy, selectionRef.current); },
-    } as cytoscape.CoseLayoutOptions);
-    layout.run();
-    applySelection(cy, selectionRef.current);
-
-    let resizeFrame = 0;
-    const resize = new ResizeObserver(() => {
-      // Dock resizing changes the viewport, never the node positions.
-      cancelAnimationFrame(resizeFrame);
-      resizeFrame = requestAnimationFrame(fit);
+    controller.current = instance;
+    let wasNarrow: boolean | undefined;
+    const resize = new ResizeObserver(([entry]) => {
+      const narrow = entry.contentRect.width < 640;
+      if (narrow !== wasNarrow) { setPanelOpen(!narrow); wasNarrow = narrow; }
     });
-    resize.observe(container);
-    return () => {
-      resize.disconnect();
-      cancelAnimationFrame(resizeFrame);
-      layout.stop();
-      cy.destroy();
-      if (cyRef.current === cy) cyRef.current = null;
-    };
-  }, [graph, hasNodes]);
-
+    resize.observe(sectionRef.current);
+    return () => { resize.disconnect(); instance.destroy(); controller.current = null; };
+  }, []);
   useEffect(() => {
-    if (cyRef.current) applySelection(cyRef.current, selectedGid);
-  }, [graph, hasNodes, selectedGid]);
+    controller.current?.setGraph(graph, filters);
+    if (pendingFocus.current && visible.has(pendingFocus.current)) {
+      controller.current?.focus(pendingFocus.current); pendingFocus.current = null;
+    }
+  }, [graph, filters, visible]);
+  useEffect(() => { controller.current?.setSelected(selectedGid); }, [selectedGid]);
+  useEffect(() => { controller.current?.setDisplay(display); }, [display]);
+  useEffect(() => { controller.current?.setForces(forces); }, [forces]);
+  useEffect(() => { controller.current?.setPanel(panelOpen); }, [panelOpen]);
+  useEffect(() => { setSearchMessage(''); setHiddenMatch(null); }, [graph]);
 
-  const stateMessage = loading ? 'Загрузка графа…' : !graph ? 'Граф пока не загружен'
-    : !graph.nodes.length ? 'Для выбранного клиента связи не найдены' : null;
+  const reveal = (gid: string) => {
+    if (!graph?.nodes.some(node => node.gid === gid)) return;
+    pendingFocus.current = gid;
+    setFilters({ ...defaultFilters }); setHiddenMatch(null);
+    setSearchMessage(`Узел ${gid} показан. Фильтры сброшены.`); onSelectGid(gid);
+  };
+  const search = (event: FormEvent) => {
+    event.preventDefault();
+    const gid = query.trim(); setHiddenMatch(null);
+    if (!gid) { setSearchMessage('Введите полный gid.'); return; }
+    if (!graph?.nodes.some(node => node.gid === gid)) {
+      setSearchMessage('Не найден в загруженном срезе. Поиск по остальному датасету пока недоступен.'); return;
+    }
+    if (!visible.has(gid)) {
+      setHiddenMatch(gid); setSearchMessage(`Узел ${gid} найден, но скрыт фильтрами.`); return;
+    }
+    controller.current?.focus(gid); onSelectGid(gid); setSearchMessage(`Найден узел ${gid}.`);
+  };
+  const reset = () => {
+    setFilters({ ...defaultFilters }); setDisplay({ ...defaultDisplay }); setForces({ ...defaultForces });
+    setQuery(''); setSearchMessage(''); setHiddenMatch(null); controller.current?.resetLayout();
+  };
+  const state = loading ? 'Загрузка графа…' : !graph ? 'Граф пока не загружен'
+    : !graph.nodes.length ? 'В этом срезе нет узлов' : !visible.size ? 'Нет узлов по выбранным фильтрам' : null;
 
-  return (
-    <section className="aml-graph" aria-label="Граф денежных переводов">
-      <div className="aml-graph__header">
-        <p>Стрелка указывает получателя</p>
-        {hasNodes && <button type="button" className="aml-graph__fit" onClick={() => {
-          const cy = cyRef.current;
-          if (!cy) return;
-          fitGraph(cy, Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--graph-layout-padding')));
-        }}>Весь срез</button>}
-      </div>
-      {stateMessage ? <div className="aml-graph__state" role="status">{stateMessage}</div> : <>
-        {selectedMissing && <p className="aml-graph__notice" role="status">Выбранный gid отсутствует в показанном срезе.</p>}
-        <div ref={containerRef} className="aml-graph__canvas" aria-label="Ориентированный граф переводов" />
-        <div className="aml-graph__legend" aria-label="Легенда ролей">
-          {roles.map(({ role, label }) => <span className="aml-graph__legend-item" key={role}>
-            <span className="aml-graph__swatch" style={{ backgroundColor: 'var(--role-' + role + ')' }} aria-hidden="true" />{label}
-          </span>)}
+  return <section ref={sectionRef} className="aml-graph" aria-label="Граф денежных переводов" aria-busy={loading}>
+    <div ref={canvasRef} className="aml-graph__canvas" tabIndex={0} role="group"
+      aria-label="Граф переводов. Для выбора узла используйте поиск по gid. Клавиши плюс и минус изменяют масштаб, 0 показывает весь срез."
+      onKeyDown={event => {
+        if (event.key === '+' || event.key === '=') { event.preventDefault(); controller.current?.zoomBy(1.3); }
+        if (event.key === '-') { event.preventDefault(); controller.current?.zoomBy(1 / 1.3); }
+        if (event.key === '0') { event.preventDefault(); controller.current?.fit(); }
+      }} />
+    {state && <div className="aml-graph__state" role="status"><span>{state}</span>
+      {!!graph?.nodes.length && !visible.size && !loading && <button onClick={() => setFilters({ ...defaultFilters })}>Сбросить фильтры</button>}
+    </div>}
+    <div className="aml-graph__meta" role="status">
+      {graph && !loading && <span>{visible.size} / {graph.nodes.length} узлов · {edgeCount} связей</span>}
+      {layoutBusy && <span className="aml-graph__settling">Раскладка…</span>}
+    </div>
+    {!panelOpen && <button className="aml-graph__open" title="Настройки графа" aria-label="Открыть настройки графа"
+      aria-expanded={false} aria-controls={`${id}-controls`} onClick={() => setPanelOpen(true)}><GraphIcon name="settings" /></button>}
+    <aside id={`${id}-controls`} className="aml-graph__controls" aria-label="Настройки графа" hidden={!panelOpen}>
+      <div className="aml-graph__controls-header"><span>Настройки графа</span><div>
+        <button title="Сбросить настройки" aria-label="Сбросить настройки графа" onClick={reset}><GraphIcon name="reset" /></button>
+        <button title="Скрыть панель" aria-label="Скрыть настройки графа" aria-expanded={true} aria-controls={`${id}-controls`}
+          onClick={() => setPanelOpen(false)}><GraphIcon name="close" /></button>
+      </div></div>
+      <form className="aml-graph__search" onSubmit={search}>
+        <div><input aria-label="Найти узел по gid" placeholder="Найти по gid…" value={query} spellCheck={false}
+          aria-describedby={searchMessage ? `${id}-search-status` : undefined}
+          onChange={event => { setQuery(event.target.value); setSearchMessage(''); setHiddenMatch(null); }} />
+          <button type="submit" title="Найти узел" aria-label="Найти узел"><GraphIcon name="search" /></button></div>
+        {searchMessage && <p id={`${id}-search-status`} role="status">{searchMessage}</p>}
+        {hiddenMatch && <button className="aml-graph__text-action" type="button" onClick={() => reveal(hiddenMatch)}>Показать узел</button>}
+      </form>
+      <GraphControls filters={filters} onFilters={setFilters} display={display} onDisplay={setDisplay}
+        forces={forces} onForces={setForces} clusters={clusters} depths={depths} />
+      <details className="aml-graph__section aml-graph__legend" open>
+        <summary>Легенда · {display.color === 'role' ? 'роли' : 'кластеры'}</summary>
+        <div className="aml-graph__legend-grid">
+          {display.color === 'role' ? roles.map(role => <span key={role}>
+            <i className={`aml-graph__swatch aml-graph__swatch--${role}`} style={{ backgroundColor: `var(--role-${role})` }} />{roleLabels[role]}</span>)
+            : clusters.map(cluster => <span key={cluster}><i className="aml-graph__swatch" style={{ backgroundColor: clusterColor(cluster) }} />Кластер {cluster}</span>)}
+          <span><i className="aml-graph__seed-swatch" />S · исходный узел</span>
         </div>
-      </>}
-    </section>
-  );
+        {display.color === 'cluster' && <p className="aml-graph__hint">Цвет — кластер. Форма — роль.</p>}
+        <p className="aml-graph__hint">Стрелка → получатель. Роли — гипотезы для проверки.</p>
+      </details>
+    </aside>
+    {hover && !state && <div className="aml-graph__tooltip" role="tooltip" style={{
+      left: Math.max(8, Math.min(hover.x + 14, (canvasRef.current?.clientWidth ?? 320) - 240)),
+      top: Math.max(34, Math.min(hover.y + 14, (canvasRef.current?.clientHeight ?? 200) - 140)),
+    }}><strong>{hover.node.is_seed ? 'S ' : ''}{hover.node.gid}</strong>
+      <span>{roleLabels[hover.node.role]}</span><span>Кластер {hover.node.cluster_id} · глубина {hover.node.depth}</span>
+      <span>Приоритет {Number.isFinite(hover.node.priority_score) ? hover.node.priority_score.toFixed(2) : '—'}</span>
+    </div>}
+    {selected && !state && <div className="aml-graph__selection" aria-label="Выбранный узел">
+      <span>{selected.is_seed ? 'S ' : ''}<strong>{selected.gid}</strong> · {roleLabels[selected.role]} · кластер {selected.cluster_id}</span>
+      {!visible.has(selected.gid) && <button onClick={() => reveal(selected.gid)}>Показать скрытый узел</button>}
+    </div>}
+    {selectedGid && graph && !selected && !loading && <p className="aml-graph__notice" role="status">Выбранный gid отсутствует в этом срезе.</p>}
+    {layoutError && <p className="aml-graph__notice" role="alert">{layoutError}</p>}
+    <nav className="aml-graph__navigation" aria-label="Навигация по графу">
+      <button title="Приблизить" aria-label="Приблизить граф" disabled={!visible.size} onClick={() => controller.current?.zoomBy(1.35)}>+</button>
+      <button title="Отдалить" aria-label="Отдалить граф" disabled={!visible.size} onClick={() => controller.current?.zoomBy(1 / 1.35)}>−</button>
+      <button title="Весь срез" aria-label="Показать весь срез" disabled={!visible.size} onClick={() => controller.current?.fit()}><GraphIcon name="fit" /></button>
+      <button title="Сбросить вид" aria-label="Сбросить вид графа" disabled={!visible.size} onClick={() => controller.current?.resetView()}><GraphIcon name="reset" /></button>
+      <button title="К выбранному узлу" aria-label="Фокус на выбранном узле" disabled={!selected || !visible.has(selected.gid)}
+        onClick={() => selected && controller.current?.focus(selected.gid)}><GraphIcon name="focus" /></button>
+    </nav>
+  </section>;
 }
