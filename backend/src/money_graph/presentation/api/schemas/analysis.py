@@ -6,6 +6,11 @@ from money_graph.application.dto.active_analysis import AnalysisSnapshot, NodeCa
 from money_graph.domain.entities.edge import Edge
 from money_graph.domain.models.analysis import Role
 from money_graph.domain.models.observation import GapCode
+from money_graph.presentation.api.schemas.temporal import (
+    TemporalPatternsResponse,
+    TemporalSummaryResponse,
+    temporal_item_response,
+)
 
 
 class HealthResponse(BaseModel):
@@ -77,6 +82,7 @@ class AnalysisResponse(BaseModel):
     edges: list[EdgeResponse]
     clusters: list[ClusterResponse]
     top_nodes: list[TopNodeResponse]
+    temporal_summary: TemporalSummaryResponse
 
 
 class DataGapResponse(BaseModel):
@@ -99,6 +105,7 @@ class NodeCardResponse(BaseModel):
     limitations: list[str]
     data_gaps: list[DataGapResponse]
     next_requests: list[NextRequestResponse]
+    temporal_patterns: TemporalPatternsResponse
 
 
 def summary_response(snapshot: AnalysisSnapshot) -> SummaryResponse:
@@ -142,6 +149,12 @@ def edge_response(edge: Edge) -> EdgeResponse:
 def analysis_response(snapshot: AnalysisSnapshot) -> AnalysisResponse:
     return AnalysisResponse(
         analysis_id=snapshot.analysis_id,
+        temporal_summary=TemporalSummaryResponse(
+            rapid_outflow=snapshot.temporal.summary.rapid_outflow,
+            synchronized_inflow=snapshot.temporal.summary.synchronized_inflow,
+            activity_spike=snapshot.temporal.summary.activity_spike,
+            n_nodes=snapshot.temporal.summary.n_nodes,
+        ),
         summary=summary_response(snapshot),
         nodes=[node_response(node) for node in snapshot.nodes],
         edges=[edge_response(edge) for edge in snapshot.edges],
@@ -172,6 +185,11 @@ def analysis_response(snapshot: AnalysisSnapshot) -> AnalysisResponse:
 def card_response(card: NodeCard) -> NodeCardResponse:
     return NodeCardResponse(
         analysis_id=card.analysis_id,
+        temporal_patterns=TemporalPatternsResponse(
+            items=[temporal_item_response(item) for item in card.temporal_patterns.items],
+            total_count=card.temporal_patterns.total_count,
+            truncated=card.temporal_patterns.truncated,
+        ),
         node=node_response(card.node),
         incoming=[edge_response(edge) for edge in card.incoming],
         outgoing=[edge_response(edge) for edge in card.outgoing],

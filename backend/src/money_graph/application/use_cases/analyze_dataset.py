@@ -10,6 +10,7 @@ from money_graph.domain.services.cluster_summary import summarize_cluster
 from money_graph.domain.services.dataset_validator import validate_dataset
 from money_graph.domain.services.priority_calculator import calculate_priorities
 from money_graph.domain.services.role_classifier import classify_role
+from money_graph.domain.services.temporal_patterns import analyze_temporal_patterns
 
 
 class AnalyzeDataset:
@@ -50,7 +51,8 @@ class AnalyzeDataset:
         )
         top = tuple(sorted(nodes, key=lambda node: (-node.priority.score, node.features.gid))[:20])
         result = AnalysisResult(nodes, clusters, top)
+        temporal = analyze_temporal_patterns(dataset.nodes, dataset.transactions)
         self._exporter.export(result, output_dir)
         return AnalysisSummary(
-            result, len(dataset.transactions), perf_counter() - started, dataset.edges
+            result, len(dataset.transactions), perf_counter() - started, dataset.edges, temporal
         )

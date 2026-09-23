@@ -2,6 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 from money_graph.domain.models.dataset import Dataset
+from money_graph.domain.services.observation_policy import OBSERVATION_END, OBSERVATION_START
 
 
 class DatasetValidationError(ValueError):
@@ -67,7 +68,7 @@ def validate_dataset(dataset: Dataset) -> None:
         _amount(transaction.sum_kzt, "transactions", row)
         if type(transaction.date) is not date:
             _fail("transactions", row, "date", "ожидается календарная дата")
-        if not date(2026, 7, 1) <= transaction.date <= date(2026, 7, 31):
+        if not OBSERVATION_START <= transaction.date <= OBSERVATION_END:
             _fail("transactions", row, "date", "дата вне периода 2026-07-01 — 2026-07-31")
         if (transaction.src, transaction.dst) not in pairs:
             _fail("transactions", row, "src/dst", "пара отсутствует в edges")

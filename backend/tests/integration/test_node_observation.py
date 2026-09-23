@@ -36,6 +36,7 @@ def test_cards_add_linked_advice_without_changing_graph_csv_or_legacy_fields(
                 "limitations",
                 "data_gaps",
                 "next_requests",
+                "temporal_patterns",
             }
             assert card["node"] == node
             assert isinstance(card["node"]["gid"], str)

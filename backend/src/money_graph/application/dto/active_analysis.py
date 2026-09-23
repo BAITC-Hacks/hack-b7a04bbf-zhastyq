@@ -6,6 +6,7 @@ from typing import BinaryIO, Literal
 from money_graph.domain.entities.edge import Edge
 from money_graph.domain.models.analysis import AnalysisResult, NodeAnalysis
 from money_graph.domain.models.observation import ObservationAdvice
+from money_graph.domain.models.temporal import TemporalAnalysis, TemporalPattern
 
 UploadName = Literal["nodes", "edges", "transactions"]
 
@@ -41,6 +42,14 @@ class AnalysisSnapshot:
     nodes: tuple[NodeView, ...]
     edges: tuple[Edge, ...]
     output_dir: Path
+    temporal: TemporalAnalysis = TemporalAnalysis()
+
+
+@dataclass(frozen=True)
+class TemporalPatternPage:
+    items: tuple[TemporalPattern, ...]
+    total_count: int
+    truncated: bool
 
 
 @dataclass(frozen=True)
@@ -51,6 +60,7 @@ class NodeCard:
     outgoing: tuple[Edge, ...]
     limitations: tuple[str, ...]
     observation_advice: tuple[ObservationAdvice, ...]
+    temporal_patterns: TemporalPatternPage
 
 
 @dataclass(frozen=True)

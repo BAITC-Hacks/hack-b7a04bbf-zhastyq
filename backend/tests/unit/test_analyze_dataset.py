@@ -79,3 +79,37 @@ def test_graph_failure_never_publishes(dataset):
             Path("input"), Path("output")
         )
     assert events == ["read"]
+
+
+def test_temporal_calculated_once_on_read_dataset_before_export(dataset, monkeypatch):
+    from money_graph.application.use_cases import analyze_dataset as module
+
+    events = []
+    original = module.analyze_temporal_patterns
+
+    def calculate(nodes, transactions):
+        assert nodes is dataset.nodes and transactions is dataset.transactions
+        events.append("temporal")
+        return original(nodes, transactions)
+
+    monkeypatch.setattr(module, "analyze_temporal_patterns", calculate)
+    summary = AnalyzeDataset(Reader(dataset, events), Graph(events), Exporter(events)).execute(
+        Path("input"), Path("output")
+    )
+    assert events == ["read", "graph", "temporal", "export"]
+    assert {group.gid for group in summary.temporal.nodes} == {node.gid for node in dataset.nodes}
+
+
+def test_temporal_failure_does_not_export(dataset, monkeypatch):
+    from money_graph.application.use_cases import analyze_dataset as module
+
+    def fail(*args):
+        raise ValueError("temporal failure")
+
+    monkeypatch.setattr(module, "analyze_temporal_patterns", fail)
+    events = []
+    with pytest.raises(ValueError, match="temporal failure"):
+        AnalyzeDataset(Reader(dataset, events), Graph(events), Exporter(events)).execute(
+            Path("input"), Path("output")
+        )
+    assert events == ["read", "graph"]

@@ -1,4 +1,4 @@
-from money_graph.application.dto.active_analysis import NodeCard
+from money_graph.application.dto.active_analysis import NodeCard, TemporalPatternPage
 from money_graph.application.exceptions import ApiError
 from money_graph.application.use_cases.get_analysis import GetAnalysis
 from money_graph.domain.services.observation_assessment import assess_observation
@@ -14,6 +14,7 @@ class GetNode:
         node = next((node for node in snapshot.nodes if node.analysis.features.gid == gid), None)
         if node is None:
             raise ApiError("GID_NOT_FOUND", "Узел не найден", {"gid": str(gid)})
+        items = next((group.items for group in snapshot.temporal.nodes if group.gid == gid), ())
         return NodeCard(
             snapshot.analysis_id,
             node,
@@ -21,4 +22,5 @@ class GetNode:
             tuple(edge for edge in snapshot.edges if edge.src == gid),
             observation_limitations(node.analysis.features),
             assess_observation(node.analysis.features),
+            TemporalPatternPage(items[:50], len(items), len(items) > 50),
         )

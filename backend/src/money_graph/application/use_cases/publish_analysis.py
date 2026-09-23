@@ -66,6 +66,7 @@ class PublishAnalysis:
                     ),
                     calculation.edges,
                     workspace.output_dir,
+                    calculation.temporal,
                 )
             self._store.replace(snapshot)
             return snapshot

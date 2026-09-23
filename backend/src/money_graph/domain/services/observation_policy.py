@@ -1,8 +1,11 @@
+from datetime import date
 from decimal import Decimal, localcontext
 
 from money_graph.domain.models.analysis import NodeFeatures
 
 OBSERVATION_PERIOD = "июль 2026"
+OBSERVATION_START = date(2026, 7, 1)
+OBSERVATION_END = date(2026, 7, 31)
 MIN_OBSERVED_AMOUNT_KZT = 5000
 
 
