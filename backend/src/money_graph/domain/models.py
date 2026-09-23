@@ -46,6 +46,7 @@ class NodeFeatures:
     def observed_ratio(self) -> float | None:
         if self.node.is_seed or self.in_kzt <= 0:
             return None
+        
         return self.out_kzt / self.in_kzt
 
 
