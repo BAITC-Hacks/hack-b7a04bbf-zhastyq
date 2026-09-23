@@ -16,7 +16,13 @@
   padding: var(--space-2) var(--panel-padding);
   color: var(--color-text-muted);
   font-size: var(--text-xs);
+  flex-wrap: wrap;
 }
+.aml-graph__controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.aml-graph__label-toggle { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; cursor: pointer; }
+.aml-graph__zoom { display: flex; align-items: center; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); }
+.aml-graph__zoom button { min-height: 26px; width: 28px; padding: 2px; border: 0; background: transparent; font-size: 16px; font-weight: 400; }
+.aml-graph__zoom output { width: 42px; text-align: center; font-size: 10px; font-variant-numeric: tabular-nums; }
 .aml-graph__fit {
   min-height: 28px;
   padding: var(--space-1) var(--space-2);
@@ -24,12 +30,22 @@
   font-weight: var(--weight-regular);
   background: var(--color-surface);
 }
-.aml-graph__canvas {
+.aml-graph__viewport {
   position: relative;
   flex: 1;
   min-height: 100px;
+  overflow: hidden;
   background: var(--color-graph-bg);
 }
+.aml-graph__canvas, .aml-graph__labels { position: absolute; inset: 0; }
+.aml-graph__leaders { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.aml-graph__leaders line { stroke: var(--graph-selected-color); stroke-width: 1; stroke-dasharray: 3 3; opacity: .7; }
+.aml-graph__labels { pointer-events: none; overflow: hidden; }
+.aml-graph__label { position: absolute; display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; padding: 0 5px; border: 1px solid transparent; border-radius: 4px; font: 12px/20px var(--font-id); color: var(--graph-label-color); background: var(--graph-label-bg); }
+.aml-graph__label--context { color: var(--color-text-secondary); background: color-mix(in srgb, var(--graph-label-bg) 92%, transparent); }
+.aml-graph__label--selected { border-color: var(--color-border-strong); font-weight: 600; }
+.aml-graph__label--hovered { border-color: var(--graph-selected-color); background: var(--color-surface); }
+@media (max-width: 760px) { .aml-graph__label-hint { display: none; } .aml-graph__header { gap: 6px; padding-inline: 10px; } .aml-graph__controls { gap: 6px; } }
 .aml-graph__state {
   display: grid;
   flex: 1;
