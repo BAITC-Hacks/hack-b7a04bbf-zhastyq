@@ -4,14 +4,20 @@
 
 ## Установка и запуск
 
-Python 3.10+ и uv, команды из каталога backend:
+Основной вход для жюри и полный быстрый запуск — [корневой README](../README.md). Здесь технические подробности backend; актуальный контракт находится в [backend/docs/data_contract.md](docs/data_contract.md), а не в устаревшей корневой копии.
+
+Проверяемая среда: Python 3.10.17, Linux/WSL2, venv и ensurepip. Команды из backend для новой установки (существующее `.venv` не пересоздавать):
 
 ```bash
 mkdir -p .tmp
-uv venv --python python3 .venv
-TMPDIR="$PWD/.tmp" uv pip install --no-cache --python .venv/bin/python -e '.[dev]'
+test ! -e .venv &&
+python3 -m venv .venv &&
+TMPDIR="$PWD/.tmp" .venv/bin/python -m pip install --no-cache-dir \
+  -c docs/requirements-verified.txt -e '.[dev]'
 .venv/bin/money-graph validate --data-dir data
 ```
+
+Для проверки рядом с существующим `.venv` используйте отдельный каталог под `.tmp/`, как описано в [протоколе воспроизводимости](docs/reproducibility.md). Чистая установка 23.09.2026 проверена: validate успешен, analyze — 6,234291 с, 288 тестов прошли, Ruff без ошибок; API запускается без AI-ключа. Файл constraints фиксирует проверенные версии зависимостей; код и pyproject не менялись. Данные организаторов не включены в Git.
 
 Можно передать любой каталог с `nodes.parquet`, `edges.parquet`, `transactions.parquet`.
 Для выданного набора результат:
